@@ -1,9 +1,9 @@
 // public/js/app.js
-// Main application logic - UPM FPX Only Version
+// Main application logic - UPM FPX Only Version with Fake Payment
 
 // ============================================
 // YSD2026 UPM - Ticket Registration System
-// Firebase + FPX + Brevo Integration
+// Firebase + Fake FPX + Brevo Integration
 // ============================================
 
 // Global variables
@@ -463,11 +463,14 @@ window.validateParticipantDetails = async function() {
                 participants: participants,
                 paymentMethod: 'FPX',
                 paymentStatus: 'pending',
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             };
             
+            console.log('Attempting to save:', bookingData);
+            
             const docRef = await addDoc(collection(window.db, "bookings"), bookingData);
-            console.log("Booking saved with ID: ", docRef.id);
+            console.log("✅ Booking saved with ID: ", docRef.id);
             
             currentBookingId = docRef.id;
             currentBookingRef = bookingId;
@@ -487,20 +490,23 @@ window.validateParticipantDetails = async function() {
                 totalAmount: total,
                 participants
             });
+        } else {
+            console.error('Firebase not initialized');
+            throw new Error('Firebase not ready');
         }
         
         if (window.hideLoading) window.hideLoading();
         goToPage(4);
         
     } catch (error) {
-        console.error("Error saving booking: ", error);
+        console.error('❌ Detailed error:', error);
+        alert('Error saving booking: ' + error.message);
         if (window.hideLoading) window.hideLoading();
-        alert("Error saving booking. Please try again.");
     }
 };
 
 // ============================================
-// PAGE 4: PAYMENT (UPM FPX ONLY - NO BANK SELECTION)
+// PAGE 4: PAYMENT (UPM FPX ONLY - FAKE PAYMENT)
 // ============================================
 function getPage4HTML() {
     return `
@@ -553,18 +559,18 @@ function getPage4HTML() {
                     </p>
                     <div style="background: #e8f5e8; padding: 15px; border-radius: 5px; margin-top: 15px;">
                         <i class="fas fa-info-circle" style="color: #4CAF50;"></i>
-                        <strong>Payment Channels:</strong> Maybank, CIMB, Public Bank, RHB, Hong Leong, and all FPX participating banks
+                        <strong>TEST MODE:</strong> This is a simulated payment for testing purposes.
                     </div>
                 </div>
                 
                 <p style="margin: 20px 0; color: #666; text-align: center;">
-                    <i class="fas fa-info-circle"></i> Click Pay Now to proceed to the secure payment page.
+                    <i class="fas fa-info-circle"></i> Click Pay Now to test the payment simulation.
                 </p>
             </div>
             
             <div class="navigation-buttons">
                 <button class="btn btn-secondary" onclick="goToPage(3)">Back</button>
-                <button class="btn btn-success" id="payNowBtn" onclick="processUPMFPXPayment()">
+                <button class="btn btn-success" id="payNowBtn" onclick="processFPXPayment()">
                     <i class="fas fa-lock"></i> PAY NOW • RM <span id="payNowAmount">70.00</span>
                 </button>
             </div>
@@ -635,7 +641,10 @@ function resetPaymentUI() {
     paymentInProgress = false;
 }
 
-window.processUPMFPXPayment = async function() {
+// ============================================
+// FAKE FPX PAYMENT SIMULATION (No real payment)
+// ============================================
+window.processFPXPayment = function() {
     if (paymentInProgress) return;
     
     paymentInProgress = true;
@@ -648,13 +657,14 @@ window.processUPMFPXPayment = async function() {
     if (successStatus) successStatus.style.display = 'none';
     if (failedStatus) failedStatus.style.display = 'none';
     
-    // Simulate FPX payment processing
+    // Fake payment processing messages
     let progress = 0;
     const messages = [
-        'Connecting to UPM FPX Gateway...',
-        'Redirecting to secure payment page...',
+        'Connecting to FPX...',
+        'Redirecting to bank...',
         'Processing payment...',
-        'Transaction in progress...'
+        'Verifying transaction...',
+        'Almost done...'
     ];
     
     const interval = setInterval(() => {
@@ -662,57 +672,53 @@ window.processUPMFPXPayment = async function() {
             processingMessage.textContent = messages[progress];
             progress++;
         }
-    }, 1500);
+    }, 1000);
     
-    try {
-        // Get booking details
-        const bookingRef = sessionStorage.getItem('bookingRef');
-        const contactPerson = document.getElementById('contactPerson')?.value;
-        const contactEmail = document.getElementById('contactEmail')?.value;
-        const contactPhone = document.getElementById('contactPhone')?.value;
-        const { total } = calculateTotal(ticketQuantity);
-        
-        // Call your FPX payment API
-        const response = await fetch('/api/create-fpx-payment', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                bookingRef: bookingRef,
-                amount: total,
-                customerName: contactPerson,
-                customerEmail: contactEmail,
-                customerPhone: contactPhone,
-                returnUrl: window.location.origin + '/payment-status.html'
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success && data.paymentUrl) {
-            // Redirect to FPX payment page
-            window.location.href = data.paymentUrl;
-        } else {
-            throw new Error('Failed to create payment');
-        }
-        
-    } catch (error) {
-        console.error('FPX payment error:', error);
+    // Fake payment processing - 90% success rate for testing
+    setTimeout(() => {
         clearInterval(interval);
         
-        if (processingStatus) processingStatus.style.display = 'none';
-        if (failedStatus) {
-            failedStatus.style.display = 'block';
-            const failedMessage = document.getElementById('failedMessage');
-            if (failedMessage) failedMessage.textContent = 'Payment gateway connection failed. Please try again.';
+        // Random success (90% chance) or failure (10% chance)
+        const isSuccess = Math.random() < 0.9;
+        
+        if (isSuccess) {
+            // Fake successful payment
+            if (processingStatus) processingStatus.style.display = 'none';
+            if (successStatus) successStatus.style.display = 'block';
+            
+            // Log fake transaction for demo
+            console.log('✅ FAKE PAYMENT SUCCESSFUL', {
+                bookingRef: paymentReferenceElement ? paymentReferenceElement.textContent : 'unknown',
+                amount: paymentAmountElement ? paymentAmountElement.textContent : 'unknown',
+                transactionId: 'TXN' + Date.now(),
+                timestamp: new Date().toISOString()
+            });
+            
+            // Store fake payment info in session
+            sessionStorage.setItem('paymentStatus', 'success');
+            sessionStorage.setItem('paymentAmount', paymentAmountElement ? paymentAmountElement.textContent : 'RM 70.00');
+            sessionStorage.setItem('transactionId', 'TXN' + Date.now());
+            
+        } else {
+            // Fake failed payment (10% chance)
+            if (processingStatus) processingStatus.style.display = 'none';
+            if (failedStatus) {
+                const failedMessage = document.getElementById('failedMessage');
+                if (failedMessage) {
+                    failedMessage.textContent = 'Payment failed. This is a test failure - please try again.';
+                }
+                failedStatus.style.display = 'block';
+            }
+            paymentInProgress = false;
+            
+            console.log('❌ FAKE PAYMENT FAILED (test scenario)');
         }
-        paymentInProgress = false;
-    }
+    }, 5000); // 5 second fake processing time
 };
 
 window.retryPayment = function() {
     resetPaymentUI();
+    console.log('🔄 Retrying fake payment...');
 };
 
 // ============================================
@@ -823,7 +829,10 @@ window.removeEvidenceFile = function() {
     if (fileInfo) fileInfo.classList.remove('active');
 };
 
-window.submitEvidence = async function() {
+// ============================================
+// SUBMIT EVIDENCE WITH FAKE DATA
+// ============================================
+window.submitEvidence = function() {
     if (!evidenceFile) {
         alert('Please upload your payment evidence.');
         return;
@@ -831,11 +840,9 @@ window.submitEvidence = async function() {
     
     if (window.showLoading) window.showLoading('Uploading evidence and finalizing booking...');
     
-    try {
-        // Here you would upload the file to Firebase Storage or your server
-        // For now, we'll simulate the upload
-        
-        setTimeout(async () => {
+    // Simulate upload and finalize
+    setTimeout(async () => {
+        try {
             // Update booking status in Firebase
             if (window.db && window.firebaseModules) {
                 const { doc, updateDoc } = window.firebaseModules;
@@ -851,11 +858,33 @@ window.submitEvidence = async function() {
                 }
             }
             
-            // Send confirmation email
+            // Get contact details
+            const contactPerson = document.getElementById('contactPerson')?.value || sessionStorage.getItem('contactPerson') || '-';
             const contactEmail = sessionStorage.getItem('contactEmail');
-            const contactPerson = sessionStorage.getItem('contactPerson');
             const bookingRef = sessionStorage.getItem('bookingRef');
             
+            // Get fake transaction data from session
+            const transactionId = sessionStorage.getItem('transactionId') || 'TXN' + Date.now();
+            const paymentAmount = sessionStorage.getItem('paymentAmount') || 'RM 70.00';
+            
+            // Update confirmation page
+            if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
+            
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
+            
+            if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM FPX (Test Mode)';
+            if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Payment Verified (Test)';
+            
+            if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef || '-';
+            if (confirmationRefElement) confirmationRefElement.textContent = bookingRef || '-';
+            if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQuantity || '1';
+            
+            // Update participants list
+            updateConfirmationParticipants();
+            
+            // Send payment received email
             if (contactEmail) {
                 await sendPaymentReceivedEmail({
                     contactPerson,
@@ -867,6 +896,15 @@ window.submitEvidence = async function() {
                 });
             }
             
+            // Log fake transaction
+            console.log('📎 FAKE TRANSACTION COMPLETE', {
+                bookingRef: bookingRef,
+                transactionId: transactionId,
+                amount: paymentAmount,
+                evidenceFile: evidenceFile.name,
+                status: 'SIMULATED - NOT REAL PAYMENT'
+            });
+            
             if (window.hideLoading) window.hideLoading();
             
             // Clear evidence file
@@ -875,13 +913,12 @@ window.submitEvidence = async function() {
             // Go to confirmation page
             goToPage(6);
             
-        }, 2000);
-        
-    } catch (error) {
-        console.error('Error submitting evidence:', error);
-        if (window.hideLoading) window.hideLoading();
-        alert('Failed to submit evidence. Please try again.');
-    }
+        } catch (error) {
+            console.error('Error submitting evidence:', error);
+            if (window.hideLoading) window.hideLoading();
+            alert('Failed to submit evidence. Please try again.');
+        }
+    }, 2000);
 };
 
 // ============================================
@@ -1183,7 +1220,34 @@ async function sendPaymentReceivedEmail(bookingDetails) {
 }
 
 // ============================================
-// PRINT SUMMARY
+// UPDATE CONFIRMATION PARTICIPANTS
+// ============================================
+function updateConfirmationParticipants() {
+    if (!confirmationParticipantsElement) return;
+    
+    confirmationParticipantsElement.innerHTML = '';
+    
+    if (participants.length === 0) return;
+    
+    const summaryTitle = document.createElement('div');
+    summaryTitle.innerHTML = '<strong>Participants:</strong>';
+    summaryTitle.style.marginTop = '15px';
+    summaryTitle.style.marginBottom = '10px';
+    confirmationParticipantsElement.appendChild(summaryTitle);
+    
+    participants.forEach(participant => {
+        const participantDiv = document.createElement('div');
+        participantDiv.className = 'participant-item';
+        participantDiv.innerHTML = `
+            <span>${participant.number}. ${participant.name}</span>
+            <span>Age: ${participant.age}</span>
+        `;
+        confirmationParticipantsElement.appendChild(participantDiv);
+    });
+}
+
+// ============================================
+// PRINT SUMMARY WITH TEST NOTICE
 // ============================================
 window.printSummary = function() {
     let participantsHTML = '';
@@ -1224,6 +1288,7 @@ window.printSummary = function() {
                 td { padding: 10px; border-bottom: 1px solid #eee; }
                 .footer { text-align: center; margin-top: 30px; font-size: 0.9rem; color: #666; }
                 .badge { display: inline-block; background-color: #ff9800; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 15px; }
+                .test-notice { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
                 @media print {
                     .no-print { display: none; }
                 }
@@ -1232,6 +1297,9 @@ window.printSummary = function() {
         <body>
             <div class="summary">
                 <div class="header">
+                    <div class="test-notice">
+                        ⚠️ TEST MODE - NOT A REAL PAYMENT ⚠️
+                    </div>
                     <div class="badge">${paymentStatus}</div>
                     <h1>YOUTH SPORTS DAY 2026</h1>
                     <h2>Universiti Putra Malaysia</h2>
