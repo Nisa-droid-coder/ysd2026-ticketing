@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="./css/style.css">
     <style>
-        /* Additional styles for loading states */
+        /* Only loading states, rest is in style.css */
         .firebase-loading {
             display: flex;
             flex-direction: column;
@@ -60,7 +60,7 @@
         <div class="header-content">
             <div class="logo-section">
                 <div class="logo-icon">
-                    <img src="./upm.png" alt="UPM Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                    <img src="./upm.png" alt="UPM Logo">
                 </div>
                 <div class="logo-text">
                     <h1>YSD2026</h1>
@@ -99,12 +99,12 @@
     
     <div class="container">
         <div class="ticket-steps">
-            <div class="step completed" id="step1">
+            <div class="step" id="step1">
                 <div class="step-circle">1</div>
                 <div class="step-text">Select Ticket</div>
                 <div class="step-line"></div>
             </div>
-            <div class="step active" id="step2">
+            <div class="step" id="step2">
                 <div class="step-circle">2</div>
                 <div class="step-text">Booking Options</div>
                 <div class="step-line"></div>
@@ -132,8 +132,7 @@
         </div>
         
         <div class="main-content" id="mainContent">
-            <!-- Firebase initialization status will be shown here -->
-            <div id="firebaseInitStatus" class="firebase-loading">
+            <div class="firebase-loading">
                 <i class="fas fa-circle-notch fa-spin"></i>
                 <h3>Initializing Secure Connection...</h3>
                 <p>Please wait while we establish a secure connection</p>
@@ -146,13 +145,9 @@
         </footer>
     </div>
 
-    <!-- Import Firebase SDK dynamically -->
+    <!-- Firebase Configuration -->
     <script type="module">
-        // ============================================
-        // FIREBASE INITIALIZATION - DIRECT CONFIG
-        // ============================================
-        
-        // Firebase configuration - hardcoded for reliability
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyByTxUC8kwivXBIYEjif907ohiu5PNeOJk",
             authDomain: "ysd2026-registration.firebaseapp.com",
@@ -162,147 +157,12 @@
             appId: "1:661339386565:web:a6b2aae92d8090b75536ac"
         };
         
-        // State management
-        let firebaseInitialized = false;
-        let retryCount = 0;
-        const MAX_RETRIES = 3;
-        
         // DOM elements
         const mainContent = document.getElementById('mainContent');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
         
-        // Show status in main content
-        function updateInitStatus(message, isError = false, showRetry = false) {
-            if (!mainContent) return;
-            
-            if (isError) {
-                mainContent.innerHTML = `
-                    <div class="firebase-error">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 15px;"></i>
-                        <h3>Connection Error</h3>
-                        <p>${message}</p>
-                        ${showRetry ? `
-                            <button class="retry-btn" onclick="window.location.reload()">
-                                <i class="fas fa-redo"></i> Retry Connection
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
-            } else {
-                mainContent.innerHTML = `
-                    <div class="firebase-loading">
-                        <i class="fas fa-circle-notch fa-spin"></i>
-                        <h3>${message}</h3>
-                        <p>Please wait while we establish a secure connection</p>
-                    </div>
-                `;
-            }
-        }
-        
-        // Initialize Firebase with retry logic
-        async function initializeFirebase() {
-            try {
-                updateInitStatus('Connecting to Firebase...');
-                
-                // Dynamically import Firebase
-                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
-                const { 
-                    getFirestore, 
-                    collection, 
-                    addDoc, 
-                    getDoc, 
-                    doc, 
-                    updateDoc, 
-                    query, 
-                    where, 
-                    getDocs 
-                } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
-                
-                // Initialize Firebase with hardcoded config
-                const app = initializeApp(firebaseConfig);
-                const db = getFirestore(app);
-                
-                // Test connection by trying to access Firestore
-                await getDocs(query(collection(db, 'bookings'), where('__test__', '==', 'test')));
-                
-                // Make Firebase available globally
-                window.db = db;
-                window.firebaseModules = {
-                    collection, 
-                    addDoc, 
-                    getDoc, 
-                    doc, 
-                    updateDoc, 
-                    query, 
-                    where, 
-                    getDocs
-                };
-                
-                firebaseInitialized = true;
-                console.log('✅ Firebase initialized successfully');
-                
-                // Clear the initialization status
-                mainContent.innerHTML = '';
-                
-                // Load the main application
-                await loadMainApp();
-                
-            } catch (error) {
-                console.error('❌ Firebase initialization failed:', error);
-                
-                retryCount++;
-                
-                if (retryCount < MAX_RETRIES) {
-                    // Retry with exponential backoff
-                    const delay = Math.pow(2, retryCount) * 1000;
-                    updateInitStatus(`Connection failed. Retrying in ${delay/1000} seconds... (Attempt ${retryCount}/${MAX_RETRIES})`);
-                    
-                    setTimeout(() => {
-                        initializeFirebase();
-                    }, delay);
-                } else {
-                    updateInitStatus(
-                        'Unable to establish secure connection. Please check your internet connection or try again later.',
-                        true,
-                        true
-                    );
-                }
-            }
-        }
-        
-        // Load the main application after Firebase is ready
-        async function loadMainApp() {
-            try {
-                // Import and initialize the main app - CORRECT PATH to your js folder
-                const module = await import('./js/app.js');
-                
-                // Call initialization if it exists
-                if (module.initializeApp) {
-                    module.initializeApp();
-                }
-                
-                // Load the first page
-                if (typeof window.goToPage === 'function') {
-                    window.goToPage(1);
-                }
-                
-            } catch (error) {
-                console.error('Error loading main app:', error);
-                mainContent.innerHTML = `
-                    <div class="firebase-error">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 15px;"></i>
-                        <h3>Application Error</h3>
-                        <p>Failed to load the application. Please refresh the page.</p>
-                        <button class="retry-btn" onclick="window.location.reload()">
-                            <i class="fas fa-redo"></i> Refresh Page
-                        </button>
-                    </div>
-                `;
-            }
-        }
-        
-        // Helper functions for loading overlay
+        // Helper functions
         window.showLoading = function(message = 'Processing...') {
             if (loadingText) loadingText.textContent = message;
             if (loadingOverlay) loadingOverlay.style.display = 'flex';
@@ -312,11 +172,67 @@
             if (loadingOverlay) loadingOverlay.style.display = 'none';
         };
         
-        // Start initialization when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeFirebase();
-        });
+        // Initialize Firebase
+        async function initializeFirebase() {
+            try {
+                // Import Firebase
+                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
+                const { 
+                    getFirestore, 
+                    collection, 
+                    addDoc, 
+                    doc, 
+                    updateDoc, 
+                    query, 
+                    where, 
+                    getDocs 
+                } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
+                
+                // Initialize
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                
+                // Make available globally
+                window.db = db;
+                window.firebaseModules = {
+                    collection, addDoc, doc, updateDoc, query, where, getDocs
+                };
+                
+                console.log('✅ Firebase initialized');
+                
+                // Load app.js from js folder
+                try {
+                    const module = await import('./js/app.js');
+                    if (module.initializeApp) module.initializeApp();
+                    if (typeof window.goToPage === 'function') window.goToPage(1);
+                } catch (appError) {
+                    console.error('Failed to load app.js:', appError);
+                    mainContent.innerHTML = `
+                        <div class="firebase-error">
+                            <h3>Application Error</h3>
+                            <p>Failed to load application: ${appError.message}</p>
+                            <button class="retry-btn" onclick="window.location.reload()">Retry</button>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('❌ Firebase failed:', error);
+                mainContent.innerHTML = `
+                    <div class="firebase-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Connection Error</h3>
+                        <p>${error.message}</p>
+                        <button class="retry-btn" onclick="window.location.reload()">
+                            <i class="fas fa-redo"></i> Retry Connection
+                        </button>
+                    </div>
+                `;
+            }
+        }
         
+        // Start
+        document.addEventListener('DOMContentLoaded', initializeFirebase);
     </script>
 </body>
 </html>
