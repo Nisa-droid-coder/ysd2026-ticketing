@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YSD2026 UPM - Ticket Registration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Additional styles for loading states */
+        .firebase-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .firebase-loading i {
+            font-size: 3rem;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        
+        .firebase-error {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            color: #c62828;
+        }
+        
+        .retry-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+        
+        .retry-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Processing...</div>
+    </div>
+
+    <header>
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <img src="upm.png" alt="UPM Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div class="logo-text">
+                    <h1>YSD2026</h1>
+                    <div class="event-title">Youth Sports Day</div>
+                    <div class="event-subtitle">
+                        <i class="fas fa-flask"></i> Little Hands, Big STEAM!
+                    </div>
+                </div>
+            </div>
+            
+            <div class="event-info">
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="far fa-calendar-alt"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Event Date</div>
+                        <div class="info-value">13th June 2026</div>
+                        <small>9:00 AM - 4:30 PM</small>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">Venue</div>
+                        <div class="info-value">Universiti Putra Malaysia</div>
+                        <small>Serdang, Selangor</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="ticket-steps">
+            <div class="step completed" id="step1">
+                <div class="step-circle">1</div>
+                <div class="step-text">Select Ticket</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step active" id="step2">
+                <div class="step-circle">2</div>
+                <div class="step-text">Booking Options</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-circle">3</div>
+                <div class="step-text">Participant Details</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" id="step4">
+                <div class="step-circle">4</div>
+                <div class="step-text">Payment</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" id="step5">
+                <div class="step-circle">5</div>
+                <div class="step-text">Upload Evidence</div>
+                <div class="step-line"></div>
+            </div>
+            <div class="step" id="step6">
+                <div class="step-circle">6</div>
+                <div class="step-text">Confirmation</div>
+                <div class="step-line"></div>
+            </div>
+        </div>
+        
+        <div class="main-content" id="mainContent">
+            <!-- Firebase initialization status will be shown here -->
+            <div id="firebaseInitStatus" class="firebase-loading">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                <h3>Initializing Secure Connection...</h3>
+                <p>Please wait while we establish a secure connection</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p>YSD2026 Universiti Putra Malaysia &copy; 2026. All rights reserved.</p>
+            <p>For inquiries, contact: ysd@upm.edu.my</p>
+        </footer>
+    </div>
+
+    <!-- Import Firebase SDK dynamically -->
+    <script type="module">
+        // ============================================
+        // SECURE FIREBASE INITIALIZATION
+        // ============================================
+        
+        // State management
+        let firebaseInitialized = false;
+        let retryCount = 0;
+        const MAX_RETRIES = 3;
+        
+        // DOM elements
+        const mainContent = document.getElementById('mainContent');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        
+        // Show status in main content
+        function updateInitStatus(message, isError = false, showRetry = false) {
+            if (!mainContent) return;
+            
+            if (isError) {
+                mainContent.innerHTML = `
+                    <div class="firebase-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 15px;"></i>
+                        <h3>Connection Error</h3>
+                        <p>${message}</p>
+                        ${showRetry ? `
+                            <button class="retry-btn" onclick="window.location.reload()">
+                                <i class="fas fa-redo"></i> Retry Connection
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                mainContent.innerHTML = `
+                    <div class="firebase-loading">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <h3>${message}</h3>
+                        <p>Please wait while we establish a secure connection</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Fetch Firebase config from secure endpoint
+        async function fetchFirebaseConfig() {
+            try {
+                updateInitStatus('Connecting to secure server...');
+                
+                const response = await fetch('/api/firebase-config', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load configuration');
+                }
+                
+                return data.config;
+            } catch (error) {
+                console.error('Error fetching Firebase config:', error);
+                throw error;
+            }
+        }
+        
+        // Initialize Firebase with retry logic
+        async function initializeFirebase() {
+            try {
+                // Fetch config from secure endpoint
+                const firebaseConfig = await fetchFirebaseConfig();
+                
+                updateInitStatus('Establishing secure connection...');
+                
+                // Dynamically import Firebase
+                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
+                const { 
+                    getFirestore, 
+                    collection, 
+                    addDoc, 
+                    getDoc, 
+                    doc, 
+                    updateDoc, 
+                    query, 
+                    where, 
+                    getDocs 
+                } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
+                
+                // Initialize Firebase
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                
+                // Test connection by trying to access Firestore
+                await getDocs(query(collection(db, 'bookings'), where('__test__', '==', 'test')));
+                
+                // Make Firebase available globally
+                window.db = db;
+                window.firebaseModules = {
+                    collection, 
+                    addDoc, 
+                    getDoc, 
+                    doc, 
+                    updateDoc, 
+                    query, 
+                    where, 
+                    getDocs
+                };
+                
+                firebaseInitialized = true;
+                console.log('✅ Firebase initialized successfully');
+                
+                // Load the main application
+                await loadMainApp();
+                
+            } catch (error) {
+                console.error('❌ Firebase initialization failed:', error);
+                
+                retryCount++;
+                
+                if (retryCount < MAX_RETRIES) {
+                    // Retry with exponential backoff
+                    const delay = Math.pow(2, retryCount) * 1000;
+                    updateInitStatus(`Connection failed. Retrying in ${delay/1000} seconds... (Attempt ${retryCount}/${MAX_RETRIES})`);
+                    
+                    setTimeout(() => {
+                        initializeFirebase();
+                    }, delay);
+                } else {
+                    updateInitStatus(
+                        'Unable to establish secure connection. Please check your internet connection or try again later.',
+                        true,
+                        true
+                    );
+                }
+            }
+        }
+        
+        // Load the main application after Firebase is ready
+        async function loadMainApp() {
+            try {
+                // Clear the initialization status
+                mainContent.innerHTML = '';
+                
+                // Import and initialize the main app
+                const module = await import('./js/app.js');
+                
+                // Call initialization if it exists
+                if (module.initializeApp) {
+                    module.initializeApp();
+                }
+                
+                // Load the first page
+                if (typeof window.goToPage === 'function') {
+                    window.goToPage(1);
+                }
+                
+            } catch (error) {
+                console.error('Error loading main app:', error);
+                mainContent.innerHTML = `
+                    <div class="firebase-error">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 15px;"></i>
+                        <h3>Application Error</h3>
+                        <p>Failed to load the application. Please refresh the page.</p>
+                        <button class="retry-btn" onclick="window.location.reload()">
+                            <i class="fas fa-redo"></i> Refresh Page
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // Helper functions for loading overlay
+        window.showLoading = function(message = 'Processing...') {
+            if (loadingText) loadingText.textContent = message;
+            if (loadingOverlay) loadingOverlay.style.display = 'flex';
+        };
+        
+        window.hideLoading = function() {
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+        };
+        
+        // Start initialization when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+        });
+        
+    </script>
+</body>
+</html>
