@@ -1337,7 +1337,7 @@ window.printSummary = function() {
                         ⚠️ TEST MODE - NOT A REAL PAYMENT ⚠️
                     </div>
                     <div class="badge">${paymentStatus}</div>
-                    <h1>YOUTH SPORTS DAY 2026</h1>
+                    <h1>YOUNG Scientist DAY 2026</h1>
                     <h2>Universiti Putra Malaysia</h2>
                     <p>13th June 2026 | Universiti Putra Malaysia, Serdang</p>
                 </div>
