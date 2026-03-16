@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
+    "vercel-build": "echo 'Build complete'",
     "build": "echo 'No build step required'"
   },
   "dependencies": {
