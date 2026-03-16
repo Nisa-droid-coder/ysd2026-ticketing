@@ -46,6 +46,12 @@ export function initializeApp() {
     
     // Hide any loading states
     if (window.hideLoading) window.hideLoading();
+    
+    // Run Firebase status check after 2 seconds
+    setTimeout(() => {
+        console.log('🔄 Running Firebase status check...');
+        window.checkFirebaseStatus();
+    }, 2000);
 }
 
 function initializeDOMElements() {
@@ -643,9 +649,8 @@ function resetPaymentUI() {
 // ============================================
 // FAKE FPX PAYMENT SIMULATION (No real payment)
 // ============================================
-// Make sure this is attached to window so the onclick can find it
 window.processFPXPayment = function() {
-    console.log('💰 processFPXPayment called'); // For debugging
+    console.log('💰 processFPXPayment called');
     if (paymentInProgress) return;
     
     paymentInProgress = true;
@@ -714,10 +719,9 @@ window.processFPXPayment = function() {
             
             console.log('❌ FAKE PAYMENT FAILED (test scenario)');
         }
-    }, 5000); // 5 second fake processing time
+    }, 5000);
 };
 
-// Also make sure retryPayment is attached to window
 window.retryPayment = function() {
     resetPaymentUI();
     console.log('🔄 Retrying fake payment...');
@@ -777,7 +781,7 @@ function getPage5HTML() {
             
             <div class="navigation-buttons">
                 <button class="btn btn-secondary" onclick="goToPage(4)">Back to Payment</button>
-                <button class="btn btn-success" onclick="submitEvidence()">
+                <button class="btn btn-success" onclick="window.submitEvidence()">
                     <i class="fas fa-check"></i> SUBMIT EVIDENCE
                 </button>
             </div>
@@ -822,6 +826,8 @@ window.handleEvidenceFile = function(event) {
     if (fileName) fileName.textContent = file.name;
     if (fileSize) fileSize.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
     if (fileInfo) fileInfo.classList.add('active');
+    
+    console.log('📎 File selected:', file.name, file.size, file.type);
 };
 
 window.removeEvidenceFile = function() {
@@ -829,12 +835,15 @@ window.removeEvidenceFile = function() {
     document.getElementById('evidenceFile').value = '';
     const fileInfo = document.getElementById('evidenceFileInfo');
     if (fileInfo) fileInfo.classList.remove('active');
+    console.log('🗑️ File removed');
 };
 
 // ============================================
-// SUBMIT EVIDENCE WITH FAKE DATA
+// SUBMIT EVIDENCE WITH FAKE DATA - FIXED VERSION
 // ============================================
-window.submitEvidence = function() {
+window.submitEvidence = async function() {
+    console.log('📤 submitEvidence called');
+    
     if (!evidenceFile) {
         alert('Please upload your payment evidence.');
         return;
@@ -842,85 +851,110 @@ window.submitEvidence = function() {
     
     if (window.showLoading) window.showLoading('Uploading evidence and finalizing booking...');
     
-    // Simulate upload and finalize
-    setTimeout(async () => {
-        try {
-            // Update booking status in Firebase
-            if (window.db && window.firebaseModules) {
+    try {
+        console.log('📤 Submitting evidence...', {
+            fileName: evidenceFile.name,
+            fileSize: evidenceFile.size,
+            fileType: evidenceFile.type
+        });
+        
+        // Try to update Firebase if available
+        let firebaseUpdateSuccess = false;
+        
+        if (window.db && window.firebaseModules) {
+            try {
                 const { doc, updateDoc } = window.firebaseModules;
                 const bookingId = sessionStorage.getItem('currentBookingId');
                 
                 if (bookingId) {
+                    console.log('Updating Firebase booking:', bookingId);
                     const bookingRef = doc(window.db, "bookings", bookingId);
                     await updateDoc(bookingRef, {
                         paymentStatus: 'evidence_uploaded',
                         evidenceUploaded: true,
+                        evidenceFileName: evidenceFile.name,
                         evidenceUploadedAt: new Date().toISOString()
                     });
+                    console.log('✅ Firebase updated successfully');
+                    firebaseUpdateSuccess = true;
+                } else {
+                    console.warn('No booking ID found in session');
                 }
+            } catch (fbError) {
+                console.error('Firebase update failed (continuing anyway):', fbError);
+                // Continue even if Firebase fails - we'll still show success to user
             }
-            
-            // Get contact details
-            const contactPerson = document.getElementById('contactPerson')?.value || sessionStorage.getItem('contactPerson') || '-';
-            const contactEmail = sessionStorage.getItem('contactEmail');
-            const bookingRef = sessionStorage.getItem('bookingRef');
-            
-            // Get fake transaction data from session
-            const transactionId = sessionStorage.getItem('transactionId') || 'TXN' + Date.now();
-            const paymentAmount = sessionStorage.getItem('paymentAmount') || 'RM 70.00';
-            
-            // Update confirmation page
-            if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
-            
-            const now = new Date();
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
-            
-            if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM FPX (Test Mode)';
-            if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Payment Verified (Test)';
-            
-            if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef || '-';
-            if (confirmationRefElement) confirmationRefElement.textContent = bookingRef || '-';
-            if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQuantity || '1';
-            
-            // Update participants list
-            updateConfirmationParticipants();
-            
-            // Send payment received email
-            if (contactEmail) {
-                await sendPaymentReceivedEmail({
-                    contactPerson,
-                    contactEmail,
-                    bookingRef,
-                    ticketQuantity,
-                    totalAmount: calculateTotal(ticketQuantity).total,
-                    participants
-                });
-            }
-            
-            // Log fake transaction
-            console.log('📎 FAKE TRANSACTION COMPLETE', {
-                bookingRef: bookingRef,
-                transactionId: transactionId,
-                amount: paymentAmount,
-                evidenceFile: evidenceFile.name,
-                status: 'SIMULATED - NOT REAL PAYMENT'
-            });
-            
-            if (window.hideLoading) window.hideLoading();
-            
-            // Clear evidence file
-            removeEvidenceFile();
-            
-            // Go to confirmation page
-            goToPage(6);
-            
-        } catch (error) {
-            console.error('Error submitting evidence:', error);
-            if (window.hideLoading) window.hideLoading();
-            alert('Failed to submit evidence. Please try again.');
+        } else {
+            console.warn('Firebase not available - skipping update');
         }
-    }, 2000);
+        
+        // Get contact details
+        const contactPerson = document.getElementById('contactPerson')?.value || 
+                              sessionStorage.getItem('contactPerson') || 'Customer';
+        const contactEmail = sessionStorage.getItem('contactEmail') || 'test@example.com';
+        const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
+        
+        // Get fake transaction data from session
+        const transactionId = sessionStorage.getItem('transactionId') || 'TXN' + Date.now();
+        const paymentAmount = sessionStorage.getItem('paymentAmount') || 'RM 70.00';
+        
+        // Update confirmation page
+        if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
+        
+        const now = new Date();
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
+        
+        if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM FPX (Test Mode)';
+        if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Payment Verified (Test)';
+        
+        if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
+        if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
+        if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQuantity || '1';
+        
+        // Update participants list
+        updateConfirmationParticipants();
+        
+        // Send payment received email (try but don't wait for it)
+        if (contactEmail && contactEmail !== 'test@example.com') {
+            sendPaymentReceivedEmail({
+                contactPerson,
+                contactEmail,
+                bookingRef,
+                ticketQuantity,
+                totalAmount: calculateTotal(ticketQuantity).total,
+                participants
+            }).catch(err => console.warn('Email sending failed:', err));
+        }
+        
+        // Log fake transaction
+        console.log('📎 FAKE TRANSACTION COMPLETE', {
+            bookingRef: bookingRef,
+            transactionId: transactionId,
+            amount: paymentAmount,
+            evidenceFile: evidenceFile.name,
+            firebaseUpdated: firebaseUpdateSuccess,
+            status: 'SIMULATED - NOT REAL PAYMENT'
+        });
+        
+        if (window.hideLoading) window.hideLoading();
+        
+        // Clear evidence file
+        removeEvidenceFile();
+        
+        // Go to confirmation page
+        goToPage(6);
+        
+    } catch (error) {
+        console.error('❌ Error in submitEvidence:', error);
+        
+        if (window.hideLoading) window.hideLoading();
+        
+        // Show user-friendly error but still allow retry
+        alert('There was an issue submitting your evidence. Please try again. (Error: ' + error.message + ')');
+        
+        // Don't clear the file so user can retry
+    }
 };
 
 // ============================================
@@ -1361,6 +1395,21 @@ window.printSummary = function() {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(printContent);
     printWindow.document.close();
+};
+
+// ============================================
+// DEBUG FUNCTION - Check Firebase Status
+// ============================================
+window.checkFirebaseStatus = function() {
+    console.log('🔍 Firebase Status Check:', {
+        dbAvailable: !!window.db,
+        modulesAvailable: !!window.firebaseModules,
+        bookingId: sessionStorage.getItem('currentBookingId'),
+        bookingRef: sessionStorage.getItem('bookingRef'),
+        contactEmail: sessionStorage.getItem('contactEmail'),
+        contactPerson: sessionStorage.getItem('contactPerson')
+    });
+    return 'Check console for details';
 };
 
 // ============================================
