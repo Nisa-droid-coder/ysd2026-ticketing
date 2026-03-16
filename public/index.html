@@ -6,7 +6,7 @@
     <title>YSD2026 UPM - Ticket Registration</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ========== COMPLETE STYLES FROM STYLE.CSS ========== */
+        /* ========== COMPLETE STYLES ========== */
         * {
             margin: 0;
             padding: 0;
@@ -27,41 +27,15 @@
         }
 
         header {
-            position: relative;
-            color: black;
-            padding: 60px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             margin-bottom: 30px;
             border-radius: 0 0 10px 10px;
-            overflow: hidden;
-        }
-
-        header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('upm.png') no-repeat center center;
-            background-size: cover;
-            opacity: 1;
-            z-index: 1;
-        }
-
-        header::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 2;
         }
 
         .header-content {
-            position: relative;
-            z-index: 3;
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
@@ -73,12 +47,13 @@
         }
 
         .logo-section {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            padding: 25px 35px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
             border-radius: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
             min-width: 350px;
         }
 
@@ -90,88 +65,71 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5rem;
             border: 3px solid white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
         }
 
         .logo-text h1 {
             font-size: 2.2rem;
             margin-bottom: 5px;
             font-weight: 700;
-            letter-spacing: 1px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .logo-text .event-title {
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             margin-bottom: 5px;
             opacity: 0.95;
-            font-weight: 600;
         }
 
         .logo-text .event-subtitle {
-            font-size: 1rem;
+            font-size: 0.9rem;
             opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .event-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            min-width: 350px;
+        }
+
+        .event-info-grid {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .event-info-item {
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .event-info {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            padding: 25px 35px;
-            border-radius: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            min-width: 350px;
+        .event-info-item i {
+            font-size: 1.5rem;
+            width: 30px;
         }
 
-        .info-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .info-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .info-icon {
-            width: 45px;
-            height: 45px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-        }
-
-        .info-content {
-            flex: 1;
-        }
-
-        .info-label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.8;
-            margin-bottom: 2px;
-        }
-
-        .info-value {
-            font-size: 1.3rem;
-            font-weight: 600;
-        }
-
-        .info-value small {
-            font-size: 0.9rem;
-            font-weight: 400;
-            opacity: 0.9;
+        .event-info-item strong {
             display: block;
+            font-size: 1.1rem;
+        }
+
+        .event-info-item small {
+            opacity: 0.9;
+            font-size: 0.85rem;
         }
 
         .ticket-steps {
@@ -293,39 +251,11 @@
             font-size: 1.5rem;
         }
 
-        .ticket-option p {
-            color: #666;
-            margin-bottom: 20px;
-        }
-
         .ticket-price {
             font-size: 1.8rem;
             font-weight: bold;
             color: #4CAF50;
             margin-bottom: 10px;
-        }
-
-        .ticket-price-discounted {
-            color: #ff5722;
-        }
-
-        .original-price {
-            text-decoration: line-through;
-            color: #999;
-            font-size: 1.2rem;
-            margin-right: 10px;
-        }
-
-        .promo-badge {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background-color: #ff5722;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 0.9rem;
         }
 
         .note {
@@ -361,26 +291,9 @@
             color: white;
         }
 
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
         .btn-success {
             background-color: #28a745;
             color: white;
-        }
-
-        .btn-success:hover {
-            background-color: #218838;
-        }
-
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background-color: #c82333;
         }
 
         .quantity-selector {
@@ -460,7 +373,6 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 1rem;
-            transition: border-color 0.3s;
         }
 
         .form-control:focus {
@@ -475,38 +387,6 @@
             padding: 20px;
             margin: 20px 0;
             border: 1px dashed #ccc;
-        }
-
-        .participant-form h4 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .participant-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .participant-row:last-child {
-            border-bottom: none;
-        }
-
-        .participant-number {
-            font-weight: bold;
-            color: #4CAF50;
-            margin-right: 10px;
-            min-width: 40px;
-        }
-
-        .participant-field {
-            flex: 1;
-            min-width: 200px;
         }
 
         .ticket-preview {
@@ -542,41 +422,19 @@
             font-weight: 500;
         }
 
-        .participants-summary {
-            margin-top: 15px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
         .payment-methods {
             display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
+            justify-content: center;
+            margin: 20px 0;
         }
 
         .payment-method {
-            flex: 1;
-            min-width: 200px;
-            border: 2px solid #e0e0e0;
+            max-width: 300px;
+            border: 2px solid #4CAF50;
             border-radius: 8px;
             padding: 20px;
             text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .payment-method:hover {
-            border-color: #4CAF50;
-            background-color: rgba(76, 175, 80, 0.05);
-            transform: translateY(-2px);
-        }
-
-        .payment-method.selected {
-            border-color: #4CAF50;
             background-color: rgba(76, 175, 80, 0.1);
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
         }
 
         .payment-method i {
@@ -585,71 +443,24 @@
             margin-bottom: 15px;
         }
 
-        .payment-method .popular-badge {
-            position: absolute;
-            top: -10px;
-            right: 10px;
-            background-color: #ff5722;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: bold;
-        }
-
         .payment-detail-form {
             margin-top: 30px;
             padding: 20px;
             background-color: #f8f9fa;
             border-radius: 8px;
             border: 1px solid #e0e0e0;
-            display: none;
         }
 
-        .payment-detail-form.active {
-            display: block;
-            animation: slideDown 0.3s ease;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .bank-logos {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .bank-option {
-            flex: 1;
-            min-width: 120px;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background-color: white;
-        }
-
-        .bank-option:hover {
-            border-color: #4CAF50;
-            background-color: #f0f9f0;
-        }
-
-        .bank-option.selected {
-            border-color: #4CAF50;
+        .secure-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
             background-color: #e8f5e8;
-            font-weight: 600;
+            color: #2e7d32;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
         }
 
         .payment-status {
@@ -672,28 +483,9 @@
             margin: 0 auto 20px;
         }
 
-        .payment-status.success i {
-            font-size: 5rem;
-            color: #4CAF50;
-            margin-bottom: 20px;
-        }
-
-        .payment-status.failed i {
-            font-size: 5rem;
-            color: #dc3545;
-            margin-bottom: 20px;
-        }
-
-        .secure-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 10px;
-            background-color: #e8f5e8;
-            color: #2e7d32;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            margin-bottom: 15px;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .success-message {
@@ -705,11 +497,6 @@
             font-size: 5rem;
             color: #4CAF50;
             margin-bottom: 20px;
-        }
-
-        .success-message h2 {
-            color: #2c3e50;
-            margin-bottom: 15px;
         }
 
         .booking-id {
@@ -728,22 +515,6 @@
             display: flex;
             justify-content: space-between;
             margin-top: 30px;
-        }
-
-        .participants-list {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: #f5f5f5;
-            border-radius: 5px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .participant-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
         }
 
         footer {
@@ -781,105 +552,6 @@
             color: white;
             margin-top: 15px;
             font-size: 1.1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .evidence-upload-page {
-            padding: 20px 0;
-        }
-
-        .evidence-upload-area {
-            margin: 30px 0;
-            padding: 30px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            border: 2px dashed #4CAF50;
-            text-align: center;
-        }
-
-        .evidence-upload-area i {
-            font-size: 4rem;
-            color: #4CAF50;
-            margin-bottom: 15px;
-        }
-
-        .evidence-upload-area h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        .evidence-upload-area p {
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        .file-upload-btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 5px;
-            cursor: pointer;
-            display: inline-block;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .file-upload-btn:hover {
-            background-color: #3d8b40;
-            transform: translateY(-2px);
-        }
-
-        .file-info {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #e8f5e8;
-            border-radius: 5px;
-            display: none;
-        }
-
-        .file-info.active {
-            display: block;
-        }
-
-        .file-details {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .file-name {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .file-size {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .remove-file {
-            color: #dc3545;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
-        .remove-file:hover {
-            text-decoration: underline;
-        }
-
-        .upload-note {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #fff3cd;
-            border-radius: 5px;
-            border-left: 4px solid #ffc107;
-            text-align: left;
         }
 
         .firebase-loading {
@@ -922,30 +594,7 @@
             background-color: #d32f2f;
         }
 
-        @media (max-width: 992px) {
-            .logo-text h1 {
-                font-size: 2rem;
-            }
-            
-            .logo-text .event-title {
-                font-size: 1.3rem;
-            }
-            
-            .event-info {
-                min-width: 300px;
-                padding: 20px;
-            }
-            
-            .info-value {
-                font-size: 1.1rem;
-            }
-        }
-
         @media (max-width: 768px) {
-            header {
-                padding: 40px 0;
-            }
-            
             .header-content {
                 flex-direction: column;
                 text-align: center;
@@ -957,74 +606,12 @@
                 min-width: auto;
             }
             
-            .event-info {
-                width: 100%;
-                min-width: auto;
-            }
-            
-            .info-item {
-                justify-content: center;
-            }
-            
             .step {
                 width: 120px;
             }
             
             .step-text {
                 font-size: 0.8rem;
-            }
-            
-            .ticket-option {
-                padding: 20px;
-            }
-            
-            .payment-method {
-                min-width: 100%;
-            }
-            
-            .participant-row {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .bank-logos {
-                flex-direction: column;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .logo-text h1 {
-                font-size: 1.6rem;
-            }
-            
-            .logo-icon {
-                width: 60px;
-                height: 60px;
-                font-size: 2rem;
-            }
-            
-            .step {
-                width: 90px;
-            }
-            
-            .step-circle {
-                width: 40px;
-                height: 40px;
-                font-size: 1rem;
-            }
-            
-            .step-line {
-                top: 20px;
-            }
-            
-            .navigation-buttons {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .navigation-buttons > div {
-                display: flex;
-                gap: 10px;
             }
         }
     </style>
@@ -1040,7 +627,7 @@
         <div class="header-content">
             <div class="logo-section">
                 <div class="logo-icon">
-                    <img src="upm.png" alt="UPM Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                    <img src="./upm.png" alt="UPM Logo">
                 </div>
                 <div class="logo-text">
                     <h1>YSD2026</h1>
@@ -1052,25 +639,20 @@
             </div>
             
             <div class="event-info">
-                <div class="info-item">
-                    <div class="info-icon">
+                <div class="event-info-grid">
+                    <div class="event-info-item">
                         <i class="far fa-calendar-alt"></i>
+                        <div>
+                            <strong>13th June 2026</strong>
+                            <small>9:00 AM - 4:30 PM</small>
+                        </div>
                     </div>
-                    <div class="info-content">
-                        <div class="info-label">Event Date</div>
-                        <div class="info-value">13th June 2026</div>
-                        <small>9:00 AM - 4:30 PM</small>
-                    </div>
-                </div>
-                
-                <div class="info-item">
-                    <div class="info-icon">
+                    <div class="event-info-item">
                         <i class="fas fa-map-marker-alt"></i>
-                    </div>
-                    <div class="info-content">
-                        <div class="info-label">Venue</div>
-                        <div class="info-value">Universiti Putra Malaysia</div>
-                        <small>Serdang, Selangor</small>
+                        <div>
+                            <strong>Universiti Putra Malaysia</strong>
+                            <small>Serdang, Selangor</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1126,13 +708,9 @@
         </footer>
     </div>
 
-    <!-- Import Firebase SDK dynamically -->
+    <!-- Firebase Initialization -->
     <script type="module">
-        // ============================================
-        // FIREBASE INITIALIZATION - DIRECT CONFIG
-        // ============================================
-        
-        // Firebase configuration - hardcoded for reliability
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyByTxUC8kwivXBIYEjif907ohiu5PNeOJk",
             authDomain: "ysd2026-registration.firebaseapp.com",
@@ -1152,7 +730,7 @@
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
         
-        // Show status in main content
+        // Show status
         function updateInitStatus(message, isError = false, showRetry = false) {
             if (!mainContent) return;
             
@@ -1180,18 +758,17 @@
             }
         }
         
-        // Initialize Firebase with retry logic
+        // Initialize Firebase
         async function initializeFirebase() {
             try {
                 updateInitStatus('Connecting to Firebase...');
                 
-                // Dynamically import Firebase
+                // Import Firebase
                 const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
                 const { 
                     getFirestore, 
                     collection, 
                     addDoc, 
-                    getDoc, 
                     doc, 
                     updateDoc, 
                     query, 
@@ -1199,11 +776,11 @@
                     getDocs 
                 } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
                 
-                // Initialize Firebase with hardcoded config
+                // Initialize Firebase
                 const app = initializeApp(firebaseConfig);
                 const db = getFirestore(app);
                 
-                // Test connection by trying to access Firestore
+                // Test connection
                 await getDocs(query(collection(db, 'bookings'), where('__test__', '==', 'test')));
                 
                 // Make Firebase available globally
@@ -1211,7 +788,6 @@
                 window.firebaseModules = {
                     collection, 
                     addDoc, 
-                    getDoc, 
                     doc, 
                     updateDoc, 
                     query, 
@@ -1222,11 +798,11 @@
                 firebaseInitialized = true;
                 console.log('✅ Firebase initialized successfully');
                 
-                // Clear the initialization status
+                // Clear status and load app
                 mainContent.innerHTML = '';
-                
-                // Load the main application
-                await loadMainApp();
+                const module = await import('./js/app.js');
+                if (module.initializeApp) module.initializeApp();
+                if (typeof window.goToPage === 'function') window.goToPage(1);
                 
             } catch (error) {
                 console.error('❌ Firebase initialization failed:', error);
@@ -1234,13 +810,9 @@
                 retryCount++;
                 
                 if (retryCount < MAX_RETRIES) {
-                    // Retry with exponential backoff
                     const delay = Math.pow(2, retryCount) * 1000;
                     updateInitStatus(`Connection failed. Retrying in ${delay/1000} seconds... (Attempt ${retryCount}/${MAX_RETRIES})`);
-                    
-                    setTimeout(() => {
-                        initializeFirebase();
-                    }, delay);
+                    setTimeout(initializeFirebase, delay);
                 } else {
                     updateInitStatus(
                         'Unable to establish secure connection. Please check your internet connection or try again later.',
@@ -1251,38 +823,7 @@
             }
         }
         
-        // Load the main application after Firebase is ready
-        async function loadMainApp() {
-            try {
-                // Import and initialize the main app
-                const module = await import('./js/app.js');
-                
-                // Call initialization if it exists
-                if (module.initializeApp) {
-                    module.initializeApp();
-                }
-                
-                // Load the first page
-                if (typeof window.goToPage === 'function') {
-                    window.goToPage(1);
-                }
-                
-            } catch (error) {
-                console.error('Error loading main app:', error);
-                mainContent.innerHTML = `
-                    <div class="firebase-error">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 15px;"></i>
-                        <h3>Application Error</h3>
-                        <p>Failed to load the application. Please refresh the page.</p>
-                        <button class="retry-btn" onclick="window.location.reload()">
-                            <i class="fas fa-redo"></i> Refresh Page
-                        </button>
-                    </div>
-                `;
-            }
-        }
-        
-        // Helper functions for loading overlay
+        // Helper functions
         window.showLoading = function(message = 'Processing...') {
             if (loadingText) loadingText.textContent = message;
             if (loadingOverlay) loadingOverlay.style.display = 'flex';
@@ -1292,11 +833,8 @@
             if (loadingOverlay) loadingOverlay.style.display = 'none';
         };
         
-        // Start initialization when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeFirebase();
-        });
-        
+        // Start
+        document.addEventListener('DOMContentLoaded', initializeFirebase);
     </script>
 </body>
 </html>
