@@ -95,7 +95,7 @@ function initializeDOMElements() {
 }
 
 function loadPageContent(pageNumber) {
-    // Your existing page content HTML
+    // Page content HTML
     const pages = {
         1: getPage1HTML(),
         2: getPage2HTML(),
@@ -156,7 +156,6 @@ function updateStepIndicators() {
 }
 
 function setupEventListeners() {
-    // Add your event listeners here
     if (quantityInput) {
         quantityInput.addEventListener('change', validateQuantity);
     }
@@ -570,7 +569,7 @@ function getPage4HTML() {
             
             <div class="navigation-buttons">
                 <button class="btn btn-secondary" onclick="goToPage(3)">Back</button>
-                <button class="btn btn-success" id="payNowBtn" onclick="processFPXPayment()">
+                <button class="btn btn-success" id="payNowBtn" onclick="window.processFPXPayment()">
                     <i class="fas fa-lock"></i> PAY NOW • RM <span id="payNowAmount">70.00</span>
                 </button>
             </div>
@@ -601,7 +600,7 @@ function getPage4HTML() {
                 <h3>Payment Failed</h3>
                 <p id="failedMessage">Transaction could not be processed. Please try again.</p>
                 <div style="margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="retryPayment()">Try Again</button>
+                    <button class="btn btn-primary" onclick="window.retryPayment()">Try Again</button>
                     <button class="btn btn-secondary" onclick="goToPage(3)">Back to Details</button>
                 </div>
             </div>
@@ -644,7 +643,9 @@ function resetPaymentUI() {
 // ============================================
 // FAKE FPX PAYMENT SIMULATION (No real payment)
 // ============================================
+// Make sure this is attached to window so the onclick can find it
 window.processFPXPayment = function() {
+    console.log('💰 processFPXPayment called'); // For debugging
     if (paymentInProgress) return;
     
     paymentInProgress = true;
@@ -716,6 +717,7 @@ window.processFPXPayment = function() {
     }, 5000); // 5 second fake processing time
 };
 
+// Also make sure retryPayment is attached to window
 window.retryPayment = function() {
     resetPaymentUI();
     console.log('🔄 Retrying fake payment...');
