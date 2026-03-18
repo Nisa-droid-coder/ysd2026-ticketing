@@ -468,6 +468,13 @@ window.validateParticipantDetails = async function() {
                 participants: participants,
                 paymentMethod: 'FPX',
                 paymentStatus: 'pending',
+                selectedBank: null,
+                // NEW FIELDS FOR ADMIN DASHBOARD
+                attendance: [],           // Empty array for attendance tracking
+                certificates: [],          // Empty array for certificate tracking
+                evidenceUploaded: false,   // No evidence yet
+                evidenceFileName: null,    // No evidence file yet
+                evidenceUploadedAt: null,  // No evidence upload time yet
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
