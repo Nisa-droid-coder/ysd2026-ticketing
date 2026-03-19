@@ -1,9 +1,9 @@
 // public/js/app.js
-// Main application logic - UPM FPX Only Version with Fake Payment
+// Main application logic - UPM FPX Only Version with Fake Payment + Base64 Evidence
 
 // ============================================
 // YSD2026 UPM - Ticket Registration System
-// Firebase + Fake FPX + Brevo Integration
+// Firebase + Fake FPX + Base64 Evidence Storage
 // ============================================
 
 // Global variables
@@ -16,7 +16,8 @@ let participants = [];
 let currentBookingId = null;
 let currentBookingRef = null;
 let paymentInProgress = false;
-let evidenceFile = null;
+let evidenceFileBase64 = null; // Store base64 data
+let evidenceFileName = null;
 
 // DOM elements
 let loadingOverlay, loadingText, quantityInput, totalAmountElement, totalSavingsElement;
@@ -469,11 +470,11 @@ window.validateParticipantDetails = async function() {
                 paymentMethod: 'FPX',
                 paymentStatus: 'pending',
                 selectedBank: null,
-                // NEW FIELDS FOR ADMIN DASHBOARD
                 attendance: [],           // Empty array for attendance tracking
                 certificates: [],          // Empty array for certificate tracking
                 evidenceUploaded: false,   // No evidence yet
                 evidenceFileName: null,    // No evidence file yet
+                evidenceData: null,        // No evidence data yet (base64)
                 evidenceUploadedAt: null,  // No evidence upload time yet
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -493,15 +494,8 @@ window.validateParticipantDetails = async function() {
             sessionStorage.setItem('contactEmail', contactEmail);
             sessionStorage.setItem('contactPerson', contactPerson);
             
-            // Send confirmation email
-            await sendConfirmationEmail({
-                contactPerson,
-                contactEmail,
-                bookingRef: bookingId,
-                ticketQuantity,
-                totalAmount: total,
-                participants
-            });
+            // Send confirmation email (mock for now)
+            console.log('📧 Would send confirmation email to:', contactEmail);
         } else {
             console.error('Firebase not initialized');
             throw new Error('Firebase not ready');
@@ -735,7 +729,7 @@ window.retryPayment = function() {
 };
 
 // ============================================
-// PAGE 5: UPLOAD EVIDENCE
+// PAGE 5: UPLOAD EVIDENCE (Base64 Version)
 // ============================================
 function getPage5HTML() {
     return `
@@ -780,7 +774,7 @@ function getPage5HTML() {
                 
                 <div class="upload-note">
                     <i class="fas fa-info-circle"></i>
-                    <strong>Accepted formats:</strong> PNG, JPG, PDF (Max 5MB)<br>
+                    <strong>Accepted formats:</strong> PNG, JPG, PDF (Max 1MB for Firestore)<br>
                     <i class="fas fa-clock"></i>
                     <strong>Note:</strong> Your booking will be confirmed after admin verifies your payment evidence.
                 </div>
@@ -804,41 +798,49 @@ function updateEvidencePage() {
     if (evidenceAmount) evidenceAmount.textContent = `RM ${total.toFixed(2)}`;
 }
 
+// Handle file selection and convert to Base64
 window.handleEvidenceFile = function(event) {
     const file = event.target.files[0];
     if (!file) return;
     
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
+    // Check file size (max 1MB for Firestore)
+    if (file.size > 1024 * 1024) { // 1MB max
+        alert('File size must be less than 1MB for Firestore storage');
         document.getElementById('evidenceFile').value = '';
         return;
     }
     
     // Check file type
     const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|pdf)$/i)) {
         alert('Please upload PNG, JPG, or PDF file only');
         document.getElementById('evidenceFile').value = '';
         return;
     }
     
-    evidenceFile = file;
-    
-    // Display file info
-    const fileName = document.getElementById('evidenceFileName');
-    const fileSize = document.getElementById('evidenceFileSize');
-    const fileInfo = document.getElementById('evidenceFileInfo');
-    
-    if (fileName) fileName.textContent = file.name;
-    if (fileSize) fileSize.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
-    if (fileInfo) fileInfo.classList.add('active');
-    
-    console.log('📎 File selected:', file.name, file.size, file.type);
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // Store the base64 string
+        evidenceFileBase64 = e.target.result;
+        evidenceFileName = file.name;
+        
+        // Display file info
+        const fileName = document.getElementById('evidenceFileName');
+        const fileSize = document.getElementById('evidenceFileSize');
+        const fileInfo = document.getElementById('evidenceFileInfo');
+        
+        if (fileName) fileName.textContent = file.name;
+        if (fileSize) fileSize.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+        if (fileInfo) fileInfo.classList.add('active');
+        
+        console.log('📎 File converted to base64:', file.name, file.size);
+    };
+    reader.readAsDataURL(file);
 };
 
 window.removeEvidenceFile = function() {
-    evidenceFile = null;
+    evidenceFileBase64 = null;
+    evidenceFileName = null;
     document.getElementById('evidenceFile').value = '';
     const fileInfo = document.getElementById('evidenceFileInfo');
     if (fileInfo) fileInfo.classList.remove('active');
@@ -846,12 +848,12 @@ window.removeEvidenceFile = function() {
 };
 
 // ============================================
-// SUBMIT EVIDENCE WITH FAKE DATA - FIXED VERSION
+// SUBMIT EVIDENCE WITH BASE64 STORAGE
 // ============================================
 window.submitEvidence = async function() {
     console.log('📤 submitEvidence called');
     
-    if (!evidenceFile) {
+    if (!evidenceFileBase64) {
         alert('Please upload your payment evidence.');
         return;
     }
@@ -860,12 +862,11 @@ window.submitEvidence = async function() {
     
     try {
         console.log('📤 Submitting evidence...', {
-            fileName: evidenceFile.name,
-            fileSize: evidenceFile.size,
-            fileType: evidenceFile.type
+            fileName: evidenceFileName,
+            dataLength: evidenceFileBase64.length
         });
         
-        // Try to update Firebase if available
+        // Update Firebase with base64 data
         let firebaseUpdateSuccess = false;
         
         if (window.db && window.firebaseModules) {
@@ -879,20 +880,26 @@ window.submitEvidence = async function() {
                     await updateDoc(bookingRef, {
                         paymentStatus: 'evidence_uploaded',
                         evidenceUploaded: true,
-                        evidenceFileName: evidenceFile.name,
+                        evidenceFileName: evidenceFileName,
+                        evidenceData: evidenceFileBase64, // Store base64 in Firestore
                         evidenceUploadedAt: new Date().toISOString()
                     });
-                    console.log('✅ Firebase updated successfully');
+                    console.log('✅ Firebase updated successfully with base64 data');
                     firebaseUpdateSuccess = true;
                 } else {
                     console.warn('No booking ID found in session');
                 }
             } catch (fbError) {
-                console.error('Firebase update failed (continuing anyway):', fbError);
-                // Continue even if Firebase fails - we'll still show success to user
+                console.error('Firebase update failed:', fbError);
+                alert('Firebase update failed: ' + fbError.message);
+                if (window.hideLoading) window.hideLoading();
+                return;
             }
         } else {
-            console.warn('Firebase not available - skipping update');
+            console.error('Firebase not available');
+            alert('Firebase not initialized');
+            if (window.hideLoading) window.hideLoading();
+            return;
         }
         
         // Get contact details
@@ -900,10 +907,6 @@ window.submitEvidence = async function() {
                               sessionStorage.getItem('contactPerson') || 'Customer';
         const contactEmail = sessionStorage.getItem('contactEmail') || 'test@example.com';
         const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
-        
-        // Get fake transaction data from session
-        const transactionId = sessionStorage.getItem('transactionId') || 'TXN' + Date.now();
-        const paymentAmount = sessionStorage.getItem('paymentAmount') || 'RM 70.00';
         
         // Update confirmation page
         if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
@@ -913,7 +916,7 @@ window.submitEvidence = async function() {
         if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
         
         if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM FPX (Test Mode)';
-        if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Payment Verified (Test)';
+        if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
         
         if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
         if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
@@ -922,26 +925,12 @@ window.submitEvidence = async function() {
         // Update participants list
         updateConfirmationParticipants();
         
-        // Send payment received email (try but don't wait for it)
-        if (contactEmail && contactEmail !== 'test@example.com') {
-            sendPaymentReceivedEmail({
-                contactPerson,
-                contactEmail,
-                bookingRef,
-                ticketQuantity,
-                totalAmount: calculateTotal(ticketQuantity).total,
-                participants
-            }).catch(err => console.warn('Email sending failed:', err));
-        }
-        
-        // Log fake transaction
-        console.log('📎 FAKE TRANSACTION COMPLETE', {
+        // Log success
+        console.log('✅ EVIDENCE UPLOAD COMPLETE', {
             bookingRef: bookingRef,
-            transactionId: transactionId,
-            amount: paymentAmount,
-            evidenceFile: evidenceFile.name,
+            evidenceFile: evidenceFileName,
             firebaseUpdated: firebaseUpdateSuccess,
-            status: 'SIMULATED - NOT REAL PAYMENT'
+            status: 'Pending Verification'
         });
         
         if (window.hideLoading) window.hideLoading();
@@ -959,8 +948,6 @@ window.submitEvidence = async function() {
         
         // Show user-friendly error but still allow retry
         alert('There was an issue submitting your evidence. Please try again. (Error: ' + error.message + ')');
-        
-        // Don't clear the file so user can retry
     }
 };
 
@@ -1055,214 +1042,6 @@ function updateConfirmationPage() {
 }
 
 // ============================================
-// EMAIL FUNCTIONS
-// ============================================
-async function sendConfirmationEmail(bookingDetails) {
-    try {
-        const emailContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-                    .content { padding: 20px; max-width: 600px; margin: 0 auto; }
-                    .booking-ref { font-size: 24px; color: #4CAF50; font-weight: bold; margin: 20px 0; }
-                    .details { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                    .footer { background: #333; color: white; padding: 15px; text-align: center; font-size: 12px; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>YSD2026 UPM</h1>
-                    <h2>Booking Confirmation</h2>
-                </div>
-                <div class="content">
-                    <p>Dear ${bookingDetails.contactPerson},</p>
-                    <p>Thank you for registering for YSD2026 at Universiti Putra Malaysia!</p>
-                    
-                    <div class="booking-ref">${bookingDetails.bookingRef}</div>
-                    
-                    <div class="details">
-                        <h3>Booking Details:</h3>
-                        <table>
-                            <tr>
-                                <th>Tickets:</th>
-                                <td>${bookingDetails.ticketQuantity} × Youth Sports Day Entry</td>
-                            </tr>
-                            <tr>
-                                <th>Total Amount:</th>
-                                <td><strong>RM ${bookingDetails.totalAmount.toFixed(2)}</strong></td>
-                            </tr>
-                            <tr>
-                                <th>Payment Method:</th>
-                                <td>UPM FPX (Online Banking)</td>
-                            </tr>
-                            <tr>
-                                <th>Payment Status:</th>
-                                <td><span style="color: #ff9800; font-weight: bold;">Pending Payment</span></td>
-                            </tr>
-                        </table>
-                    </div>
-                    
-                    <h3>Participants:</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Age</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${bookingDetails.participants.map(p => `
-                                <tr>
-                                    <td>${p.number}</td>
-                                    <td>${p.name}</td>
-                                    <td>${p.age}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    
-                    <h3>Next Steps:</h3>
-                    <ol>
-                        <li>Complete your payment via UPM FPX gateway</li>
-                        <li>Upload your payment receipt</li>
-                        <li>Wait for admin verification (within 24 hours)</li>
-                        <li>Receive final confirmation email</li>
-                    </ol>
-                    
-                    <p style="margin-top: 30px; text-align: center;">
-                        <a href="${window.location.origin}/?booking=${bookingDetails.bookingRef}" 
-                           style="background: #4CAF50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                            PROCEED TO PAYMENT
-                        </a>
-                    </p>
-                    
-                    <p><strong>Event Details:</strong><br>
-                    📅 Date: 13th June 2026<br>
-                    ⏰ Time: 9:00 AM - 4:30 PM<br>
-                    📍 Venue: Universiti Putra Malaysia, Serdang</p>
-                </div>
-                <div class="footer">
-                    <p>For inquiries: ysd@upm.edu.my | Tel: 03-1234 5678</p>
-                    <p>© 2026 Universiti Putra Malaysia</p>
-                </div>
-            </body>
-            </html>
-        `;
-
-        const response = await fetch('/api/send-confirmation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                to: bookingDetails.contactEmail,
-                subject: `YSD2026 Booking Confirmation - ${bookingDetails.bookingRef}`,
-                htmlContent: emailContent,
-                bookingRef: bookingDetails.bookingRef
-            })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-            console.log('✅ Confirmation email sent');
-        }
-    } catch (error) {
-        console.error('❌ Failed to send email:', error);
-    }
-}
-
-async function sendPaymentReceivedEmail(bookingDetails) {
-    try {
-        const emailContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
-                    .content { padding: 20px; max-width: 600px; margin: 0 auto; }
-                    .booking-ref { font-size: 24px; color: #4CAF50; font-weight: bold; margin: 20px 0; }
-                    .details { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                    .footer { background: #333; color: white; padding: 15px; text-align: center; font-size: 12px; }
-                    .success-badge { background: #4CAF50; color: white; padding: 5px 15px; border-radius: 20px; display: inline-block; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>YSD2026 UPM</h1>
-                    <h2>Payment Evidence Received</h2>
-                </div>
-                <div class="content">
-                    <p>Dear ${bookingDetails.contactPerson},</p>
-                    <p>Thank you! We have received your payment evidence for YSD2026.</p>
-                    
-                    <div class="booking-ref">${bookingDetails.bookingRef}</div>
-                    
-                    <div class="details">
-                        <h3>Submission Details:</h3>
-                        <table>
-                            <tr>
-                                <th>Tickets:</th>
-                                <td>${bookingDetails.ticketQuantity} × Youth Sports Day Entry</td>
-                            </tr>
-                            <tr>
-                                <th>Amount Paid:</th>
-                                <td><strong>RM ${bookingDetails.totalAmount.toFixed(2)}</strong></td>
-                            </tr>
-                            <tr>
-                                <th>Payment Method:</th>
-                                <td>UPM FPX (Online Banking)</td>
-                            </tr>
-                            <tr>
-                                <th>Status:</th>
-                                <td><span class="success-badge">Pending Verification</span></td>
-                            </tr>
-                        </table>
-                    </div>
-                    
-                    <p><strong>What happens next?</strong></p>
-                    <p>Our admin will verify your payment within <strong>24 hours</strong>. You will receive a final confirmation email once verified.</p>
-                    
-                    <p>If you have any questions, please contact us at ysd@upm.edu.my</p>
-                    
-                    <p><strong>Event Details:</strong><br>
-                    📅 Date: 13th June 2026<br>
-                    ⏰ Time: 9:00 AM - 4:30 PM<br>
-                    📍 Venue: Universiti Putra Malaysia, Serdang</p>
-                </div>
-                <div class="footer">
-                    <p>For inquiries: ysd@upm.edu.my | Tel: 03-1234 5678</p>
-                    <p>© 2026 Universiti Putra Malaysia</p>
-                </div>
-            </body>
-            </html>
-        `;
-
-        const response = await fetch('/api/send-confirmation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                to: bookingDetails.contactEmail,
-                subject: `YSD2026 Payment Received - ${bookingDetails.bookingRef}`,
-                htmlContent: emailContent,
-                bookingRef: bookingDetails.bookingRef
-            })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-            console.log('✅ Payment received email sent');
-        }
-    } catch (error) {
-        console.error('❌ Failed to send payment received email:', error);
-    }
-}
-
-// ============================================
 // UPDATE CONFIRMATION PARTICIPANTS
 // ============================================
 function updateConfirmationParticipants() {
@@ -1290,7 +1069,7 @@ function updateConfirmationParticipants() {
 }
 
 // ============================================
-// PRINT SUMMARY WITH TEST NOTICE
+// PRINT SUMMARY
 // ============================================
 window.printSummary = function() {
     let participantsHTML = '';
@@ -1331,7 +1110,6 @@ window.printSummary = function() {
                 td { padding: 10px; border-bottom: 1px solid #eee; }
                 .footer { text-align: center; margin-top: 30px; font-size: 0.9rem; color: #666; }
                 .badge { display: inline-block; background-color: #ff9800; color: white; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 15px; }
-                .test-notice { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
                 @media print {
                     .no-print { display: none; }
                 }
@@ -1340,11 +1118,8 @@ window.printSummary = function() {
         <body>
             <div class="summary">
                 <div class="header">
-                    <div class="test-notice">
-                        ⚠️ TEST MODE - NOT A REAL PAYMENT ⚠️
-                    </div>
                     <div class="badge">${paymentStatus}</div>
-                    <h1>YOUNG Scientist DAY 2026</h1>
+                    <h1>YOUNG SCIENTIST DAY 2026</h1>
                     <h2>Universiti Putra Malaysia</h2>
                     <p>13th June 2026 | Universiti Putra Malaysia, Serdang</p>
                 </div>
@@ -1405,6 +1180,13 @@ window.printSummary = function() {
 };
 
 // ============================================
+// NAVIGATION HELPERS
+// ============================================
+window.goToEvidenceUpload = function() {
+    goToPage(5);
+};
+
+// ============================================
 // DEBUG FUNCTION - Check Firebase Status
 // ============================================
 window.checkFirebaseStatus = function() {
@@ -1417,11 +1199,4 @@ window.checkFirebaseStatus = function() {
         contactPerson: sessionStorage.getItem('contactPerson')
     });
     return 'Check console for details';
-};
-
-// ============================================
-// NAVIGATION HELPERS
-// ============================================
-window.goToEvidenceUpload = function() {
-    goToPage(5);
 };
