@@ -1,9 +1,9 @@
 // public/js/app.js
-// Main application logic - UPM Payment Gateway Redirect Version (SECURE - API BASED)
+// Main application logic - Direct Firebase Access with Security Rules
 
 // ============================================
 // YSD2026 UPM - Ticket Registration System
-// Secure API-Based Version - No Direct Firebase Access
+// Direct Firebase Version - Relies on Security Rules
 // ============================================
 
 // Global variables
@@ -26,77 +26,35 @@ let confirmationQuantityElement, confirmationBookingRefElement, confirmationPaym
 let confirmationRefElement, confirmationParticipantsElement, confirmationPaymentStatusElement;
 
 // ============================================
-// API HELPER FUNCTIONS
-// ============================================
-async function callAPI(endpoint, data, method = 'POST') {
-    const response = await fetch(`/api${endpoint}`, {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: method !== 'GET' ? JSON.stringify(data) : undefined
-    });
-    
-    const result = await response.json();
-    if (!response.ok) {
-        throw new Error(result.error || 'API request failed');
-    }
-    return result;
-}
-
-// ============================================
 // INITIALIZATION
 // ============================================
 export function initializeApp() {
-    console.log('🚀 Initializing YSD2026 Ticket Registration (Secure Mode)');
+    console.log('🚀 Initializing YSD2026 Ticket Registration');
     
-    // Get DOM elements
     initializeDOMElements();
-    
-    // Load the first page
     loadPageContent(1);
-    
-    // Set up event listeners
     setupEventListeners();
-    
-    // Update step indicators
     updateStepIndicators();
-    
-    // Hide any loading states
     if (window.hideLoading) window.hideLoading();
-    
-    // Status check after 2 seconds
-    setTimeout(() => {
-        console.log('🔄 System ready - API endpoints available');
-    }, 2000);
 }
 
 function initializeDOMElements() {
-    // Loading elements
     loadingOverlay = document.getElementById('loadingOverlay');
     loadingText = document.getElementById('loadingText');
-    
-    // Page 2 elements
     quantityInput = document.getElementById('quantity');
     totalAmountElement = document.getElementById('totalAmount');
     totalSavingsElement = document.getElementById('totalSavings');
     priceBreakdownDiv = document.getElementById('priceBreakdown');
     bookingTicketPriceElement = document.getElementById('bookingTicketPrice');
-    
-    // Page 3 elements
     previewQuantityElement = document.getElementById('previewQuantity');
     previewTotalElement = document.getElementById('previewTotal');
     previewTicketTypeElement = document.getElementById('previewTicketType');
-    
-    // Page 4 elements
     paymentContactElement = document.getElementById('paymentContact');
     paymentAmountElement = document.getElementById('paymentAmount');
     paymentReferenceElement = document.getElementById('paymentReference');
     paymentParticipantsElement = document.getElementById('paymentParticipants');
     participantsSummaryElement = document.getElementById('participantsSummary');
     payNowAmount = document.getElementById('payNowAmount');
-    
-    // Page 6 elements
     confirmationContactElement = document.getElementById('confirmationContact');
     confirmationDateElement = document.getElementById('confirmationDate');
     confirmationQuantityElement = document.getElementById('confirmationQuantity');
@@ -108,7 +66,6 @@ function initializeDOMElements() {
 }
 
 function loadPageContent(pageNumber) {
-    // Page content HTML
     const pages = {
         1: getPage1HTML(),
         2: getPage2HTML(),
@@ -120,11 +77,8 @@ function loadPageContent(pageNumber) {
     
     document.getElementById('mainContent').innerHTML = pages[pageNumber];
     currentPage = pageNumber;
-    
-    // Re-initialize DOM elements after content load
     initializeDOMElements();
     
-    // Update page-specific logic
     if (pageNumber === 2) {
         updateTotalAmount();
         setupQuantityListeners();
@@ -147,7 +101,6 @@ function loadPageContent(pageNumber) {
     window.scrollTo(0, 0);
 }
 
-// Navigation functions
 window.goToPage = function(pageNumber) {
     loadPageContent(pageNumber);
 };
@@ -157,7 +110,6 @@ function updateStepIndicators() {
         const stepElement = document.getElementById(`step${i}`);
         if (stepElement) {
             stepElement.classList.remove('active', 'completed');
-            
             if (i < currentPage) {
                 stepElement.classList.add('completed');
             } else if (i === currentPage) {
@@ -383,7 +335,6 @@ function updateParticipantForms() {
     if (!container) return;
     
     container.innerHTML = '';
-    
     for (let i = 1; i <= ticketQuantity; i++) {
         addParticipantForm(i);
     }
@@ -409,20 +360,18 @@ function addParticipantForm(index) {
             </div>
         </div>
     `;
-    
     container.appendChild(participantForm);
 }
 
 function updateBookingSummary() {
     const { total } = calculateTotal(ticketQuantity);
-    
     if (previewQuantityElement) previewQuantityElement.textContent = ticketQuantity;
     if (previewTotalElement) previewTotalElement.textContent = `RM ${total.toFixed(2)}`;
     if (previewTicketTypeElement) previewTicketTypeElement.textContent = 'Kids (5-12 years)';
 }
 
 // ============================================
-// VALIDATE PARTICIPANT DETAILS - USING API
+// VALIDATE PARTICIPANT DETAILS - DIRECT FIREBASE
 // ============================================
 window.validateParticipantDetails = async function() {
     const contactPerson = document.getElementById('contactPerson')?.value;
@@ -465,32 +414,44 @@ window.validateParticipantDetails = async function() {
     }
     
     const { total } = calculateTotal(ticketQuantity);
+    const bookingRef = `YSD${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
     
     if (window.showLoading) window.showLoading('Creating your booking...');
     
     try {
-        // SECURE: Call API endpoint instead of direct Firebase
-        const result = await callAPI('/create-booking', {
+        const bookingData = {
+            bookingRef,
             contactPerson,
             contactEmail,
             contactPhone,
             totalAmount: total,
             ticketQuantity: ticketQuantity,
-            participants
-        });
+            participants: participants,
+            paymentMethod: 'UPM Payment Gateway',
+            paymentStatus: 'pending',
+            attendance: [],
+            certificates: [],
+            evidenceUploaded: false,
+            evidenceFileName: null,
+            evidenceData: null,
+            evidenceUploadedAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
         
-        console.log('✅ Booking created:', result);
+        const docRef = await window.db.collection('bookings').add(bookingData);
         
-        currentBookingId = result.bookingId;
-        currentBookingRef = result.bookingRef;
+        console.log('✅ Booking created:', bookingRef, docRef.id);
         
-        // Store in session for later use
-        sessionStorage.setItem('currentBookingId', result.bookingId);
-        sessionStorage.setItem('bookingRef', result.bookingRef);
+        currentBookingId = docRef.id;
+        currentBookingRef = bookingRef;
+        
+        sessionStorage.setItem('currentBookingId', docRef.id);
+        sessionStorage.setItem('bookingRef', bookingRef);
         sessionStorage.setItem('contactEmail', contactEmail);
         sessionStorage.setItem('contactPerson', contactPerson);
         sessionStorage.setItem('contactPhone', contactPhone);
-        sessionStorage.setItem('totalAmount', result.totalAmount.toString());
+        sessionStorage.setItem('totalAmount', total.toString());
         sessionStorage.setItem('ticketQuantity', ticketQuantity.toString());
         sessionStorage.setItem('participants', JSON.stringify(participants));
         
@@ -535,7 +496,6 @@ function getPage4HTML() {
                 <div class="participants-summary" id="participantsSummary"></div>
             </div>
             
-            <!-- UPM Payment Gateway Information -->
             <div style="background: linear-gradient(135deg, #00653e 0%, #2c7a4b 100%); border-radius: 12px; padding: 30px; margin: 25px 0; color: white; text-align: center;">
                 <i class="fas fa-university" style="font-size: 3rem; margin-bottom: 15px;"></i>
                 <h3 style="margin-bottom: 10px;">UPM Payment Gateway</h3>
@@ -567,7 +527,7 @@ function getPage4HTML() {
 
 function updatePaymentSummary() {
     const total = parseFloat(sessionStorage.getItem('totalAmount')) || calculateTotal(ticketQuantity).total;
-    const contactPerson = sessionStorage.getItem('contactPerson') || document.getElementById('contactPerson')?.value || '-';
+    const contactPerson = sessionStorage.getItem('contactPerson') || '-';
     const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
     const ticketQty = parseInt(sessionStorage.getItem('ticketQuantity')) || ticketQuantity;
     
@@ -577,7 +537,6 @@ function updatePaymentSummary() {
     if (paymentParticipantsElement) paymentParticipantsElement.textContent = ticketQty;
     if (payNowAmount) payNowAmount.textContent = total.toFixed(2);
     
-    // Get participants from session storage if available
     let savedParticipants = sessionStorage.getItem('participants');
     if (savedParticipants && participantsSummaryElement) {
         try {
@@ -595,40 +554,19 @@ function updatePaymentSummary() {
         } catch (e) {
             console.error('Error parsing participants:', e);
         }
-    } else if (participants.length > 0 && participantsSummaryElement) {
-        let summaryHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
-        participants.forEach(p => {
-            summaryHtml += `
-                <div class="participant-item">
-                    <span>${p.number}. ${p.name}</span>
-                    <span>Age: ${p.age}</span>
-                </div>
-            `;
-        });
-        participantsSummaryElement.innerHTML = summaryHtml;
     }
 }
 
-// ============================================
-// REDIRECT TO UPM PAYMENT GATEWAY
-// ============================================
 window.redirectToUPMPayment = function() {
-    console.log('💰 redirectToUPMPayment called');
-    
-    // Get booking details from session storage
     const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
     const totalAmount = sessionStorage.getItem('totalAmount') || calculateTotal(ticketQuantity).total;
     const contactPerson = sessionStorage.getItem('contactPerson') || 'Customer';
     const contactEmail = sessionStorage.getItem('contactEmail') || '';
     const contactPhone = sessionStorage.getItem('contactPhone') || '';
     
-    // Show loading modal
     showPaymentModal();
     
-    // Build the UPM Payment Gateway URL
     const upmGatewayUrl = 'https://paygate.upm.edu.my/action.do';
-    
-    // Build query parameters
     const params = new URLSearchParams({
         do: '',
         bahasa: 'bi',
@@ -641,19 +579,12 @@ window.redirectToUPMPayment = function() {
     
     const redirectUrl = `${upmGatewayUrl}?${params.toString()}`;
     
-    console.log('Redirecting to UPM Payment Gateway:', {
-        url: redirectUrl,
-        bookingRef: bookingRef,
-        amount: totalAmount,
-        contactPerson: contactPerson
-    });
+    console.log('Redirecting to UPM Payment Gateway:', { bookingRef, amount: totalAmount });
     
-    // Store payment session info
     sessionStorage.setItem('paymentInitiated', 'true');
     sessionStorage.setItem('paymentTimestamp', new Date().toISOString());
     sessionStorage.setItem('paymentAmount', totalAmount);
     
-    // Small delay to show the modal, then redirect
     setTimeout(() => {
         window.location.href = redirectUrl;
     }, 1500);
@@ -691,20 +622,16 @@ function showPaymentModal() {
         if (manualLink) {
             manualLink.onclick = function(e) {
                 e.preventDefault();
-                const upmUrl = 'https://paygate.upm.edu.my/action.do?do=&bahasa=bi';
-                window.location.href = upmUrl;
+                window.location.href = 'https://paygate.upm.edu.my/action.do?do=&bahasa=bi';
             };
         }
     }
-    
     modal.style.display = 'flex';
 }
 
 function hidePaymentModal() {
     const modal = document.getElementById('paymentInstructions');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    if (modal) modal.style.display = 'none';
 }
 
 // ============================================
@@ -783,7 +710,6 @@ function updateEvidencePage() {
     if (evidenceAmountElem) evidenceAmountElem.textContent = `RM ${parseFloat(totalAmount).toFixed(2)}`;
 }
 
-// Handle file selection and convert to Base64
 window.handleEvidenceFile = function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -830,7 +756,7 @@ window.removeEvidenceFile = function() {
 };
 
 // ============================================
-// SUBMIT EVIDENCE - USING API
+// SUBMIT EVIDENCE - DIRECT FIREBASE
 // ============================================
 window.submitEvidence = async function() {
     console.log('📤 submitEvidence called');
@@ -850,71 +776,57 @@ window.submitEvidence = async function() {
     if (window.showLoading) window.showLoading('Uploading evidence...');
     
     try {
-        // SECURE: Call API endpoint to upload evidence
-        await callAPI('/upload-evidence', {
-            bookingId,
-            evidenceFileBase64,
-            fileName: evidenceFileName
+        await window.db.collection('bookings').doc(bookingId).update({
+            evidenceUploaded: true,
+            evidenceFileName: evidenceFileName,
+            evidenceData: evidenceFileBase64,
+            evidenceUploadedAt: new Date().toISOString(),
+            paymentStatus: 'evidence_uploaded',
+            updatedAt: new Date().toISOString()
         });
         
         console.log('✅ Evidence uploaded successfully');
         
-        // Get updated booking details for confirmation
-        const bookingResponse = await fetch(`/api/get-booking?bookingId=${bookingId}`);
-        const bookingData = await bookingResponse.json();
+        const contactPerson = sessionStorage.getItem('contactPerson') || 'Customer';
+        const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
+        const ticketQty = sessionStorage.getItem('ticketQuantity') || ticketQuantity || '1';
         
-        if (bookingData.success && bookingData.booking) {
-            const booking = bookingData.booking;
-            
-            // Update confirmation page
-            const contactPerson = sessionStorage.getItem('contactPerson') || 'Customer';
-            const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
-            const ticketQty = sessionStorage.getItem('ticketQuantity') || ticketQuantity || '1';
-            
-            if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
-            
-            const now = new Date();
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
-            
-            if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM Payment Gateway';
-            if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
-            if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
-            if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
-            if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQty;
-            
-            // Update participants list
-            let savedParticipants = sessionStorage.getItem('participants');
-            if (savedParticipants) {
-                try {
-                    const participantsList = JSON.parse(savedParticipants);
-                    if (confirmationParticipantsElement && participantsList.length > 0) {
-                        let participantsHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
-                        participantsList.forEach(p => {
-                            participantsHtml += `
-                                <div class="participant-item">
-                                    <span>${p.number}. ${p.name}</span>
-                                    <span>Age: ${p.age}</span>
-                                </div>
-                            `;
-                        });
-                        confirmationParticipantsElement.innerHTML = participantsHtml;
-                    }
-                } catch (e) {
-                    console.error('Error parsing participants:', e);
+        if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
+        
+        const now = new Date();
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
+        
+        if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM Payment Gateway';
+        if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
+        if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
+        if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
+        if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQty;
+        
+        let savedParticipants = sessionStorage.getItem('participants');
+        if (savedParticipants) {
+            try {
+                const participantsList = JSON.parse(savedParticipants);
+                if (confirmationParticipantsElement && participantsList.length > 0) {
+                    let participantsHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
+                    participantsList.forEach(p => {
+                        participantsHtml += `
+                            <div class="participant-item">
+                                <span>${p.number}. ${p.name}</span>
+                                <span>Age: ${p.age}</span>
+                            </div>
+                        `;
+                    });
+                    confirmationParticipantsElement.innerHTML = participantsHtml;
                 }
+            } catch (e) {
+                console.error('Error parsing participants:', e);
             }
         }
         
         if (window.hideLoading) window.hideLoading();
-        
-        // Clear evidence file
         removeEvidenceFile();
-        
-        // Hide payment modal if visible
         hidePaymentModal();
-        
-        // Go to confirmation page
         goToPage(6);
         
     } catch (error) {
@@ -924,9 +836,6 @@ window.submitEvidence = async function() {
     }
 };
 
-// ============================================
-// GO TO EVIDENCE UPLOAD PAGE
-// ============================================
 window.goToEvidenceUpload = function() {
     goToPage(5);
 };
@@ -1006,7 +915,6 @@ function updateConfirmationPage() {
     if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM Payment Gateway';
     if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
     
-    // Try to load participants from session storage if not in memory
     let savedParticipants = sessionStorage.getItem('participants');
     if (savedParticipants && participants.length === 0) {
         try {
@@ -1016,7 +924,6 @@ function updateConfirmationPage() {
         }
     }
     
-    // Update participants list
     if (confirmationParticipantsElement && participants.length > 0) {
         let participantsHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
         participants.forEach(p => {
@@ -1031,12 +938,8 @@ function updateConfirmationPage() {
     }
 }
 
-// ============================================
-// UPDATE CONFIRMATION PARTICIPANTS
-// ============================================
 function updateConfirmationParticipants() {
     if (!confirmationParticipantsElement) return;
-    
     confirmationParticipantsElement.innerHTML = '';
     
     if (participants.length === 0) {
@@ -1044,9 +947,7 @@ function updateConfirmationParticipants() {
         if (saved) {
             try {
                 participants = JSON.parse(saved);
-            } catch (e) {
-                console.error('Error parsing participants:', e);
-            }
+            } catch (e) {}
         }
     }
     
@@ -1074,7 +975,6 @@ function updateConfirmationParticipants() {
 // ============================================
 window.printSummary = function() {
     let participantsHTML = '';
-    
     let printParticipants = participants;
     if (printParticipants.length === 0) {
         const saved = sessionStorage.getItem('participants');

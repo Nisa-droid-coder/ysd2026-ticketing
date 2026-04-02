@@ -6,6 +6,9 @@
     <title>YSD2026 UPM - Ticket Registration</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="./css/style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -109,31 +112,45 @@
         </footer>
     </div>
 
-    <!-- Secure Application Initialization - No Firebase Config Exposed -->
-    <script type="module">
+    <script>
+        // Firebase Configuration - Safe to expose with security rules
+        const firebaseConfig = {
+            apiKey: "AIzaSyByTxUC8kwivXBIYEjif907ohiu5PNeOJk",
+            authDomain: "ysd2026-registration.firebaseapp.com",
+            projectId: "ysd2026-registration",
+            storageBucket: "ysd2026-registration.firebasestorage.app",
+            messagingSenderId: "661339386565",
+            appId: "1:661339386565:web:a6b2aae92d8090b75536ac"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         // DOM elements
         const mainContent = document.getElementById('mainContent');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
-        
+
         // Helper functions
         window.showLoading = function(message = 'Processing...') {
             if (loadingText) loadingText.textContent = message;
             if (loadingOverlay) loadingOverlay.style.display = 'flex';
         };
-        
+
         window.hideLoading = function() {
             if (loadingOverlay) loadingOverlay.style.display = 'none';
         };
-        
-        // Initialize Application
+
+        // Make db available globally
+        window.db = db;
+
+        // Load the main application
         async function initializeApplication() {
-            console.log('🚀 Initializing YSD2026 Registration System (Secure Mode)');
+            console.log('🚀 Initializing YSD2026 Registration System');
             
-            // Load the main application module from the correct path
             try {
-                // Use absolute path to js folder (not api/js)
-                const module = await import('/js/app.js');
+                const module = await import('./js/app.js');
                 if (module.initializeApp) {
                     module.initializeApp();
                 } else {
@@ -155,21 +172,9 @@
                 if (window.hideLoading) window.hideLoading();
             }
         }
-        
-        // Start the application when DOM is ready
+
+        // Start the application
         document.addEventListener('DOMContentLoaded', initializeApplication);
-        
-        // Optional: Check API health on load (doesn't affect functionality)
-        setTimeout(async () => {
-            try {
-                const response = await fetch('/api/health');
-                if (response.ok) {
-                    console.log('✅ API endpoints are available');
-                }
-            } catch (e) {
-                console.log('ℹ️ API health check: service may still be initializing');
-            }
-        }, 2000);
     </script>
 </body>
 </html>
