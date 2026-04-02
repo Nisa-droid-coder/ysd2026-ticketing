@@ -48,7 +48,13 @@
                     <div class="info-content">
                         <div class="info-label">Venue</div>
                         <div class="info-value">Universiti Putra Malaysia</div>
-                        <small>Serdang, Selangor</small>
+                        <small>
+                           Department of Human Anatomy,<br>
+                           Faculty of Medicine and Health Sciences,<br>
+                           Universiti Putra Malaysia,<br>
+                           43400 UPM Serdang,<br>
+                           Selangor Darul Ehsan.
+                        </small>
                     </div>
                 </div>
             </div>
@@ -99,22 +105,12 @@
         
         <footer>
             <p>YSD2026 Universiti Putra Malaysia &copy; 2026. All rights reserved.</p>
-            <p>For inquiries, contact: ysd@upm.edu.my</p>
+            <p>For inquiries, contact: ysd@upm.edu.my | Tel: 03-9769 2330 / 03-9769 3220</p>
         </footer>
     </div>
 
-    <!-- Firebase Configuration -->
+    <!-- Secure Application Initialization - No Firebase Config Exposed -->
     <script type="module">
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyByTxUC8kwivXBIYEjif907ohiu5PNeOJk",
-            authDomain: "ysd2026-registration.firebaseapp.com",
-            projectId: "ysd2026-registration",
-            storageBucket: "ysd2026-registration.firebasestorage.app",
-            messagingSenderId: "661339386565",
-            appId: "1:661339386565:web:a6b2aae92d8090b75536ac"
-        };
-        
         // DOM elements
         const mainContent = document.getElementById('mainContent');
         const loadingOverlay = document.getElementById('loadingOverlay');
@@ -130,67 +126,88 @@
             if (loadingOverlay) loadingOverlay.style.display = 'none';
         };
         
-        // Initialize Firebase
-        async function initializeFirebase() {
+        // API Health Check
+        async function checkAPIHealth() {
             try {
-                // Import Firebase
-                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js');
-                const { 
-                    getFirestore, 
-                    collection, 
-                    addDoc, 
-                    doc, 
-                    updateDoc, 
-                    query, 
-                    where, 
-                    getDocs 
-                } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js');
-                
-                // Initialize
-                const app = initializeApp(firebaseConfig);
-                const db = getFirestore(app);
-                
-                // Make available globally
-                window.db = db;
-                window.firebaseModules = {
-                    collection, addDoc, doc, updateDoc, query, where, getDocs
-                };
-                
-                console.log('✅ Firebase initialized');
-                
-                // Load app.js from js folder
-                try {
-                    const module = await import('./js/app.js');
-                    if (module.initializeApp) module.initializeApp();
-                    if (typeof window.goToPage === 'function') window.goToPage(1);
-                } catch (appError) {
-                    console.error('Failed to load app.js:', appError);
-                    mainContent.innerHTML = `
-                        <div class="firebase-error">
-                            <h3>Application Error</h3>
-                            <p>Failed to load application: ${appError.message}</p>
-                            <button class="retry-btn" onclick="window.location.reload()">Retry</button>
-                        </div>
-                    `;
+                const response = await fetch('/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    console.log('✅ API is healthy');
+                    return true;
                 }
-                
+                return false;
             } catch (error) {
-                console.error('❌ Firebase failed:', error);
-                mainContent.innerHTML = `
-                    <div class="firebase-error">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Connection Error</h3>
-                        <p>${error.message}</p>
-                        <button class="retry-btn" onclick="window.location.reload()">
-                            <i class="fas fa-redo"></i> Retry Connection
-                        </button>
-                    </div>
-                `;
+                console.error('API health check failed:', error);
+                return false;
             }
         }
         
-        // Start
-        document.addEventListener('DOMContentLoaded', initializeFirebase);
+        // Initialize Application
+        async function initializeApplication() {
+            console.log('🚀 Initializing YSD2026 Registration System (Secure Mode)');
+            
+            // Check API health first
+            const apiHealthy = await checkAPIHealth();
+            if (!apiHealthy) {
+                console.warn('⚠️ API health check failed, but continuing...');
+            }
+            
+            // Load the main application module
+            try {
+                const module = await import('./js/app.js');
+                if (module.initializeApp) {
+                    module.initializeApp();
+                } else {
+                    throw new Error('App module missing initializeApp function');
+                }
+            } catch (error) {
+                console.error('Failed to load application:', error);
+                mainContent.innerHTML = `
+                    <div style="text-align: center; padding: 50px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #f44336;"></i>
+                        <h3>Application Error</h3>
+                        <p>Failed to load the registration system. Please refresh the page.</p>
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 10px;">Error: ${error.message}</p>
+                        <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 20px;">
+                            <i class="fas fa-sync-alt"></i> Retry
+                        </button>
+                    </div>
+                `;
+                if (window.hideLoading) window.hideLoading();
+            }
+        }
+        
+        // Create a health check endpoint if it doesn't exist
+        // This is a fallback - you should create api/health.js
+        if (!window.healthCheckEndpoint) {
+            console.log('Application starting in secure mode - all Firebase operations go through API');
+        }
+        
+        // Start the application
+        document.addEventListener('DOMContentLoaded', initializeApplication);
+        
+        // Optional: Add API health check endpoint (create this in your api folder)
+        // For now, just log that we're ready
+        console.log('✅ Application ready - Using secure API endpoints');
+    </script>
+    
+    <!-- Optional: Add a simple health check endpoint if not exists -->
+    <script>
+        // Fallback check for API availability
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/api/health');
+                if (response.ok) {
+                    console.log('✅ API endpoints are available');
+                }
+            } catch (e) {
+                console.log('ℹ️ API health endpoint not found - using direct mode');
+            }
+        }, 1000);
     </script>
 </body>
 </html>

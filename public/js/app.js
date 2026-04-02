@@ -1,9 +1,9 @@
 // public/js/app.js
-// Main application logic - UPM FPX Only Version with Fake Payment + Base64 Evidence
+// Main application logic - UPM Payment Gateway Redirect Version (SECURE - API BASED)
 
 // ============================================
 // YSD2026 UPM - Ticket Registration System
-// Firebase + Fake FPX + Base64 Evidence Storage
+// Secure API-Based Version - No Direct Firebase Access
 // ============================================
 
 // Global variables
@@ -15,23 +15,40 @@ const BUNDLE_PRICE = 260.00;
 let participants = [];
 let currentBookingId = null;
 let currentBookingRef = null;
-let paymentInProgress = false;
-let evidenceFileBase64 = null; // Store base64 data
-let evidenceFileName = null;
 
 // DOM elements
 let loadingOverlay, loadingText, quantityInput, totalAmountElement, totalSavingsElement;
 let priceBreakdownDiv, previewQuantityElement, previewTotalElement, bookingTicketPriceElement;
 let previewTicketTypeElement, paymentContactElement, paymentAmountElement, paymentReferenceElement;
-let paymentParticipantsElement, participantsSummaryElement, payNowAmount, evidenceBookingRef;
-let evidenceAmount, confirmationContactElement, confirmationDateElement;
+let paymentParticipantsElement, participantsSummaryElement, payNowAmount;
+let confirmationContactElement, confirmationDateElement;
 let confirmationQuantityElement, confirmationBookingRefElement, confirmationPaymentMethodElement;
 let confirmationRefElement, confirmationParticipantsElement, confirmationPaymentStatusElement;
-let paymentMainContent, paymentProcessing, processingStatus, successStatus, failedStatus, processingMessage;
 
-// Initialize the application
+// ============================================
+// API HELPER FUNCTIONS
+// ============================================
+async function callAPI(endpoint, data, method = 'POST') {
+    const response = await fetch(`/api${endpoint}`, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: method !== 'GET' ? JSON.stringify(data) : undefined
+    });
+    
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || 'API request failed');
+    }
+    return result;
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
 export function initializeApp() {
-    console.log('🚀 Initializing YSD2026 Ticket Registration');
+    console.log('🚀 Initializing YSD2026 Ticket Registration (Secure Mode)');
     
     // Get DOM elements
     initializeDOMElements();
@@ -48,10 +65,9 @@ export function initializeApp() {
     // Hide any loading states
     if (window.hideLoading) window.hideLoading();
     
-    // Run Firebase status check after 2 seconds
+    // Status check after 2 seconds
     setTimeout(() => {
-        console.log('🔄 Running Firebase status check...');
-        window.checkFirebaseStatus();
+        console.log('🔄 System ready - API endpoints available');
     }, 2000);
 }
 
@@ -79,16 +95,6 @@ function initializeDOMElements() {
     paymentParticipantsElement = document.getElementById('paymentParticipants');
     participantsSummaryElement = document.getElementById('participantsSummary');
     payNowAmount = document.getElementById('payNowAmount');
-    paymentMainContent = document.getElementById('paymentMainContent');
-    paymentProcessing = document.getElementById('paymentProcessing');
-    processingStatus = document.getElementById('processingStatus');
-    successStatus = document.getElementById('successStatus');
-    failedStatus = document.getElementById('failedStatus');
-    processingMessage = document.getElementById('processingMessage');
-    
-    // Page 5 elements
-    evidenceBookingRef = document.getElementById('evidenceBookingRef');
-    evidenceAmount = document.getElementById('evidenceAmount');
     
     // Page 6 elements
     confirmationContactElement = document.getElementById('confirmationContact');
@@ -129,10 +135,9 @@ function loadPageContent(pageNumber) {
     }
     if (pageNumber === 4) {
         updatePaymentSummary();
-        resetPaymentUI();
     }
     if (pageNumber === 5) {
-        updateEvidencePage();
+        setTimeout(() => updateEvidencePage(), 50);
     }
     if (pageNumber === 6) {
         updateConfirmationPage();
@@ -244,24 +249,31 @@ function getPage2HTML() {
 }
 
 window.increaseQuantity = function() {
-    ticketQuantity = parseInt(quantityInput.value) + 1;
-    quantityInput.value = ticketQuantity;
-    updateTotalAmount();
+    const input = document.getElementById('quantity');
+    if (input) {
+        ticketQuantity = parseInt(input.value) + 1;
+        input.value = ticketQuantity;
+        updateTotalAmount();
+    }
 };
 
 window.decreaseQuantity = function() {
-    if (ticketQuantity > 1) {
-        ticketQuantity = parseInt(quantityInput.value) - 1;
-        quantityInput.value = ticketQuantity;
+    const input = document.getElementById('quantity');
+    if (input && ticketQuantity > 1) {
+        ticketQuantity = parseInt(input.value) - 1;
+        input.value = ticketQuantity;
         updateTotalAmount();
     }
 };
 
 window.validateQuantity = function() {
-    let value = parseInt(quantityInput.value);
+    const input = document.getElementById('quantity');
+    if (!input) return;
+    
+    let value = parseInt(input.value);
     if (isNaN(value) || value < 1) value = 1;
     if (value > 20) value = 20;
-    quantityInput.value = value;
+    input.value = value;
     ticketQuantity = value;
     updateTotalAmount();
 };
@@ -409,6 +421,9 @@ function updateBookingSummary() {
     if (previewTicketTypeElement) previewTicketTypeElement.textContent = 'Kids (5-12 years)';
 }
 
+// ============================================
+// VALIDATE PARTICIPANT DETAILS - USING API
+// ============================================
 window.validateParticipantDetails = async function() {
     const contactPerson = document.getElementById('contactPerson')?.value;
     const contactEmail = document.getElementById('contactEmail')?.value;
@@ -450,69 +465,47 @@ window.validateParticipantDetails = async function() {
     }
     
     const { total } = calculateTotal(ticketQuantity);
-    const bookingId = 'YSD-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
     
-    if (window.showLoading) window.showLoading('Saving booking details...');
+    if (window.showLoading) window.showLoading('Creating your booking...');
     
     try {
-        // Save booking to Firebase
-        if (window.db && window.firebaseModules) {
-            const { collection, addDoc } = window.firebaseModules;
-            
-            const bookingData = {
-                bookingRef: bookingId,
-                contactPerson: contactPerson,
-                contactEmail: contactEmail,
-                contactPhone: contactPhone,
-                totalAmount: total,
-                ticketQuantity: ticketQuantity,
-                participants: participants,
-                paymentMethod: 'FPX',
-                paymentStatus: 'pending',
-                selectedBank: null,
-                attendance: [],           // Empty array for attendance tracking
-                certificates: [],          // Empty array for certificate tracking
-                evidenceUploaded: false,   // No evidence yet
-                evidenceFileName: null,    // No evidence file yet
-                evidenceData: null,        // No evidence data yet (base64)
-                evidenceUploadedAt: null,  // No evidence upload time yet
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            console.log('Attempting to save:', bookingData);
-            
-            const docRef = await addDoc(collection(window.db, "bookings"), bookingData);
-            console.log("✅ Booking saved with ID: ", docRef.id);
-            
-            currentBookingId = docRef.id;
-            currentBookingRef = bookingId;
-            
-            // Store in session for later use
-            sessionStorage.setItem('currentBookingId', docRef.id);
-            sessionStorage.setItem('bookingRef', bookingId);
-            sessionStorage.setItem('contactEmail', contactEmail);
-            sessionStorage.setItem('contactPerson', contactPerson);
-            
-            // Send confirmation email (mock for now)
-            console.log('📧 Would send confirmation email to:', contactEmail);
-        } else {
-            console.error('Firebase not initialized');
-            throw new Error('Firebase not ready');
-        }
+        // SECURE: Call API endpoint instead of direct Firebase
+        const result = await callAPI('/create-booking', {
+            contactPerson,
+            contactEmail,
+            contactPhone,
+            totalAmount: total,
+            ticketQuantity: ticketQuantity,
+            participants
+        });
+        
+        console.log('✅ Booking created:', result);
+        
+        currentBookingId = result.bookingId;
+        currentBookingRef = result.bookingRef;
+        
+        // Store in session for later use
+        sessionStorage.setItem('currentBookingId', result.bookingId);
+        sessionStorage.setItem('bookingRef', result.bookingRef);
+        sessionStorage.setItem('contactEmail', contactEmail);
+        sessionStorage.setItem('contactPerson', contactPerson);
+        sessionStorage.setItem('contactPhone', contactPhone);
+        sessionStorage.setItem('totalAmount', result.totalAmount.toString());
+        sessionStorage.setItem('ticketQuantity', ticketQuantity.toString());
+        sessionStorage.setItem('participants', JSON.stringify(participants));
         
         if (window.hideLoading) window.hideLoading();
         goToPage(4);
         
     } catch (error) {
-        console.error('❌ Detailed error:', error);
-        alert('Error saving booking: ' + error.message);
+        console.error('❌ Error:', error);
+        alert('Error creating booking: ' + error.message);
         if (window.hideLoading) window.hideLoading();
     }
 };
 
 // ============================================
-// PAGE 4: PAYMENT (UPM FPX ONLY - FAKE PAYMENT)
+// PAGE 4: PAYMENT - UPM GATEWAY REDIRECT
 // ============================================
 function getPage4HTML() {
     return `
@@ -542,73 +535,30 @@ function getPage4HTML() {
                 <div class="participants-summary" id="participantsSummary"></div>
             </div>
             
-            <!-- UPM FPX Payment - No Bank Selection -->
-            <div class="payment-methods" style="justify-content: center;">
-                <div class="payment-method selected" id="upmMethod" style="max-width: 300px; margin:0 auto;">
-                    <i class="fas fa-university"></i>
-                    <h4>UPM FPX Payment</h4>
-                    <p>Secure Online Banking</p>
+            <!-- UPM Payment Gateway Information -->
+            <div style="background: linear-gradient(135deg, #00653e 0%, #2c7a4b 100%); border-radius: 12px; padding: 30px; margin: 25px 0; color: white; text-align: center;">
+                <i class="fas fa-university" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 10px;">UPM Payment Gateway</h3>
+                <p style="margin-bottom: 20px; opacity: 0.9;">You will be redirected to the official UPM payment portal to complete your transaction securely.</p>
+                <div style="background: rgba(255,255,255,0.2); border-radius: 8px; padding: 15px; margin-top: 10px;">
+                    <i class="fas fa-shield-alt"></i> Secured by UPM • SSL Encrypted
                 </div>
             </div>
             
-            <div class="payment-detail-form active" id="upmForm">
-                <div class="secure-badge">
-                    <i class="fas fa-lock"></i> Secured by UPM • 256-bit SSL Encryption
-                </div>
-                
-                <div style="text-align: center; padding: 20px;">
-                    <i class="fas fa-university" style="font-size: 3rem; color: #4CAF50; margin-bottom: 15px;"></i>
-                    <h3 style="margin-bottom: 15px;">UPM FPX Payment Gateway</h3>
-                    <p style="color: #666; margin-bottom: 20px;">
-                        You will be redirected to the UPM secure FPX payment page.<br>
-                        All major Malaysian banks are supported.
-                    </p>
-                    <div style="background: #e8f5e8; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                        <i class="fas fa-info-circle" style="color: #4CAF50;"></i>
-                        <strong>TEST MODE:</strong> This is a simulated payment for testing purposes.
-                    </div>
-                </div>
-                
-                <p style="margin: 20px 0; color: #666; text-align: center;">
-                    <i class="fas fa-info-circle"></i> Click Pay Now to test the payment simulation.
-                </p>
+            <div class="note" style="background-color: #fff3cd; border-left-color: #ffc107;">
+                <i class="fas fa-info-circle"></i> <strong>Important:</strong> After clicking "Pay Now", you will be directed to the UPM payment gateway. 
+                Complete your payment there, then return to this page and click "Continue to Upload Evidence" to submit your payment receipt.
             </div>
             
             <div class="navigation-buttons">
                 <button class="btn btn-secondary" onclick="goToPage(3)">Back</button>
-                <button class="btn btn-success" id="payNowBtn" onclick="window.processFPXPayment()">
-                    <i class="fas fa-lock"></i> PAY NOW • RM <span id="payNowAmount">70.00</span>
-                </button>
-            </div>
-        </div>
-        
-        <!-- Payment Processing Status -->
-        <div id="paymentProcessing" style="display: none;">
-            <div class="payment-status active" id="processingStatus">
-                <div class="spinner"></div>
-                <h3>Processing Payment</h3>
-                <p id="processingMessage">Connecting to UPM FPX Gateway...</p>
-                <div style="margin-top: 20px; color: #666;">
-                    <i class="fas fa-clock"></i> Please do not close this window
-                </div>
-            </div>
-            
-            <div class="payment-status" id="successStatus">
-                <i class="fas fa-check-circle" style="font-size: 5rem; color: #4CAF50; margin-bottom: 20px;"></i>
-                <h3>Payment Successful!</h3>
-                <p>Your FPX transaction has been completed.</p>
-                <button class="btn btn-primary" onclick="goToEvidenceUpload()" style="margin-top: 20px;">
-                    Continue to Upload Evidence
-                </button>
-            </div>
-            
-            <div class="payment-status" id="failedStatus">
-                <i class="fas fa-times-circle" style="font-size: 5rem; color: #dc3545; margin-bottom: 20px;"></i>
-                <h3>Payment Failed</h3>
-                <p id="failedMessage">Transaction could not be processed. Please try again.</p>
-                <div style="margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="window.retryPayment()">Try Again</button>
-                    <button class="btn btn-secondary" onclick="goToPage(3)">Back to Details</button>
+                <div>
+                    <button class="btn btn-success" id="payNowBtn" onclick="window.redirectToUPMPayment()">
+                        <i class="fas fa-external-link-alt"></i> PAY NOW • RM <span id="payNowAmount">70.00</span>
+                    </button>
+                    <button class="btn btn-primary" id="continueAfterPaymentBtn" onclick="window.goToEvidenceUpload()" style="margin-left: 10px;">
+                        <i class="fas fa-arrow-right"></i> Continue to Upload Evidence
+                    </button>
                 </div>
             </div>
         </div>
@@ -616,18 +566,36 @@ function getPage4HTML() {
 }
 
 function updatePaymentSummary() {
-    const { total } = calculateTotal(ticketQuantity);
-    const contactPerson = document.getElementById('contactPerson')?.value || '-';
+    const total = parseFloat(sessionStorage.getItem('totalAmount')) || calculateTotal(ticketQuantity).total;
+    const contactPerson = sessionStorage.getItem('contactPerson') || document.getElementById('contactPerson')?.value || '-';
     const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
+    const ticketQty = parseInt(sessionStorage.getItem('ticketQuantity')) || ticketQuantity;
     
     if (paymentContactElement) paymentContactElement.textContent = contactPerson;
     if (paymentAmountElement) paymentAmountElement.textContent = `RM ${total.toFixed(2)}`;
     if (paymentReferenceElement) paymentReferenceElement.textContent = bookingRef;
-    if (paymentParticipantsElement) paymentParticipantsElement.textContent = ticketQuantity;
+    if (paymentParticipantsElement) paymentParticipantsElement.textContent = ticketQty;
     if (payNowAmount) payNowAmount.textContent = total.toFixed(2);
     
-    // Update participants summary
-    if (participantsSummaryElement && participants.length > 0) {
+    // Get participants from session storage if available
+    let savedParticipants = sessionStorage.getItem('participants');
+    if (savedParticipants && participantsSummaryElement) {
+        try {
+            const parsedParticipants = JSON.parse(savedParticipants);
+            let summaryHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
+            parsedParticipants.forEach(p => {
+                summaryHtml += `
+                    <div class="participant-item">
+                        <span>${p.number}. ${p.name}</span>
+                        <span>Age: ${p.age}</span>
+                    </div>
+                `;
+            });
+            participantsSummaryElement.innerHTML = summaryHtml;
+        } catch (e) {
+            console.error('Error parsing participants:', e);
+        }
+    } else if (participants.length > 0 && participantsSummaryElement) {
         let summaryHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
         participants.forEach(p => {
             summaryHtml += `
@@ -641,101 +609,112 @@ function updatePaymentSummary() {
     }
 }
 
-function resetPaymentUI() {
-    if (paymentMainContent) paymentMainContent.style.display = 'block';
-    if (paymentProcessing) paymentProcessing.style.display = 'none';
-    paymentInProgress = false;
+// ============================================
+// REDIRECT TO UPM PAYMENT GATEWAY
+// ============================================
+window.redirectToUPMPayment = function() {
+    console.log('💰 redirectToUPMPayment called');
+    
+    // Get booking details from session storage
+    const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
+    const totalAmount = sessionStorage.getItem('totalAmount') || calculateTotal(ticketQuantity).total;
+    const contactPerson = sessionStorage.getItem('contactPerson') || 'Customer';
+    const contactEmail = sessionStorage.getItem('contactEmail') || '';
+    const contactPhone = sessionStorage.getItem('contactPhone') || '';
+    
+    // Show loading modal
+    showPaymentModal();
+    
+    // Build the UPM Payment Gateway URL
+    const upmGatewayUrl = 'https://paygate.upm.edu.my/action.do';
+    
+    // Build query parameters
+    const params = new URLSearchParams({
+        do: '',
+        bahasa: 'bi',
+        amount: totalAmount,
+        billno: bookingRef,
+        name: contactPerson,
+        email: contactEmail,
+        phone: contactPhone
+    });
+    
+    const redirectUrl = `${upmGatewayUrl}?${params.toString()}`;
+    
+    console.log('Redirecting to UPM Payment Gateway:', {
+        url: redirectUrl,
+        bookingRef: bookingRef,
+        amount: totalAmount,
+        contactPerson: contactPerson
+    });
+    
+    // Store payment session info
+    sessionStorage.setItem('paymentInitiated', 'true');
+    sessionStorage.setItem('paymentTimestamp', new Date().toISOString());
+    sessionStorage.setItem('paymentAmount', totalAmount);
+    
+    // Small delay to show the modal, then redirect
+    setTimeout(() => {
+        window.location.href = redirectUrl;
+    }, 1500);
+};
+
+function showPaymentModal() {
+    let modal = document.getElementById('paymentInstructions');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'paymentInstructions';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+        modal.innerHTML = `
+            <div style="background: white; max-width: 500px; margin: 20px; padding: 30px; border-radius: 12px; text-align: center;">
+                <i class="fas fa-university" style="font-size: 3rem; color: #4CAF50; margin-bottom: 15px;"></i>
+                <h3>Redirecting to UPM Payment Gateway</h3>
+                <p style="margin: 15px 0;">Please wait while we redirect you to the secure UPM payment portal.</p>
+                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #4CAF50; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto;"></div>
+                <p style="font-size: 0.9rem; color: #666;">If you are not redirected automatically, <a href="#" id="manualRedirectLink">click here</a></p>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        const manualLink = document.getElementById('manualRedirectLink');
+        if (manualLink) {
+            manualLink.onclick = function(e) {
+                e.preventDefault();
+                const upmUrl = 'https://paygate.upm.edu.my/action.do?do=&bahasa=bi';
+                window.location.href = upmUrl;
+            };
+        }
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function hidePaymentModal() {
+    const modal = document.getElementById('paymentInstructions');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 // ============================================
-// FAKE FPX PAYMENT SIMULATION (No real payment)
-// ============================================
-window.processFPXPayment = function() {
-    console.log('💰 processFPXPayment called');
-    if (paymentInProgress) return;
-    
-    paymentInProgress = true;
-    
-    // Hide main content, show processing
-    if (paymentMainContent) paymentMainContent.style.display = 'none';
-    if (paymentProcessing) paymentProcessing.style.display = 'block';
-    
-    if (processingStatus) processingStatus.style.display = 'block';
-    if (successStatus) successStatus.style.display = 'none';
-    if (failedStatus) failedStatus.style.display = 'none';
-    
-    // Fake payment processing messages
-    let progress = 0;
-    const messages = [
-        'Connecting to FPX...',
-        'Redirecting to bank...',
-        'Processing payment...',
-        'Verifying transaction...',
-        'Almost done...'
-    ];
-    
-    const interval = setInterval(() => {
-        if (progress < messages.length && processingMessage) {
-            processingMessage.textContent = messages[progress];
-            progress++;
-        }
-    }, 1000);
-    
-    // Fake payment processing - 90% success rate for testing
-    setTimeout(() => {
-        clearInterval(interval);
-        
-        // Random success (90% chance) or failure (10% chance)
-        const isSuccess = Math.random() < 0.9;
-        
-        if (isSuccess) {
-            // Fake successful payment
-            if (processingStatus) processingStatus.style.display = 'none';
-            if (successStatus) successStatus.style.display = 'block';
-            
-            // Log fake transaction for demo
-            console.log('✅ FAKE PAYMENT SUCCESSFUL', {
-                bookingRef: paymentReferenceElement ? paymentReferenceElement.textContent : 'unknown',
-                amount: paymentAmountElement ? paymentAmountElement.textContent : 'unknown',
-                transactionId: 'TXN' + Date.now(),
-                timestamp: new Date().toISOString()
-            });
-            
-            // Store fake payment info in session
-            sessionStorage.setItem('paymentStatus', 'success');
-            sessionStorage.setItem('paymentAmount', paymentAmountElement ? paymentAmountElement.textContent : 'RM 70.00');
-            sessionStorage.setItem('transactionId', 'TXN' + Date.now());
-            
-        } else {
-            // Fake failed payment (10% chance)
-            if (processingStatus) processingStatus.style.display = 'none';
-            if (failedStatus) {
-                const failedMessage = document.getElementById('failedMessage');
-                if (failedMessage) {
-                    failedMessage.textContent = 'Payment failed. This is a test failure - please try again.';
-                }
-                failedStatus.style.display = 'block';
-            }
-            paymentInProgress = false;
-            
-            console.log('❌ FAKE PAYMENT FAILED (test scenario)');
-        }
-    }, 5000);
-};
-
-window.retryPayment = function() {
-    resetPaymentUI();
-    console.log('🔄 Retrying fake payment...');
-};
-
-// ============================================
-// PAGE 5: UPLOAD EVIDENCE (Base64 Version)
+// PAGE 5: UPLOAD EVIDENCE
 // ============================================
 function getPage5HTML() {
     return `
         <div class="evidence-upload-page">
             <h2>Upload Payment Evidence</h2>
-            <p class="note"><i class="fas fa-info-circle"></i> Your FPX payment was successful. Please upload your payment receipt as evidence for admin verification.</p>
+            <p class="note"><i class="fas fa-info-circle"></i> After completing your payment at the UPM payment gateway, please upload your payment receipt or transaction screenshot as evidence.</p>
             
             <div class="ticket-preview">
                 <h4>Booking Information</h4>
@@ -744,19 +723,19 @@ function getPage5HTML() {
                     <span class="preview-value" id="evidenceBookingRef">YSD-2026-001</span>
                 </div>
                 <div class="preview-item">
-                    <span class="preview-label">Amount Paid:</span>
+                    <span class="preview-label">Amount to Pay:</span>
                     <span class="preview-value" id="evidenceAmount">RM 70.00</span>
                 </div>
                 <div class="preview-item">
                     <span class="preview-label">Payment Method:</span>
-                    <span class="preview-value">UPM FPX (Online Banking)</span>
+                    <span class="preview-value">UPM Payment Gateway</span>
                 </div>
             </div>
             
             <div class="evidence-upload-area">
                 <i class="fas fa-cloud-upload-alt"></i>
                 <h3>Upload Payment Receipt</h3>
-                <p>Please upload a screenshot or PDF of your FPX transaction receipt.</p>
+                <p>Please upload a screenshot or PDF of your UPM payment gateway transaction receipt.</p>
                 
                 <input type="file" id="evidenceFile" accept=".png,.jpg,.jpeg,.pdf" style="display: none;" onchange="handleEvidenceFile(event)">
                 <div class="file-upload-btn" onclick="document.getElementById('evidenceFile').click()">
@@ -790,12 +769,18 @@ function getPage5HTML() {
     `;
 }
 
+let evidenceFileBase64 = null;
+let evidenceFileName = null;
+
 function updateEvidencePage() {
     const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
-    const { total } = calculateTotal(ticketQuantity);
+    const totalAmount = sessionStorage.getItem('totalAmount') || calculateTotal(ticketQuantity).total;
+    
+    const evidenceBookingRef = document.getElementById('evidenceBookingRef');
+    const evidenceAmountElem = document.getElementById('evidenceAmount');
     
     if (evidenceBookingRef) evidenceBookingRef.textContent = bookingRef;
-    if (evidenceAmount) evidenceAmount.textContent = `RM ${total.toFixed(2)}`;
+    if (evidenceAmountElem) evidenceAmountElem.textContent = `RM ${parseFloat(totalAmount).toFixed(2)}`;
 }
 
 // Handle file selection and convert to Base64
@@ -803,14 +788,12 @@ window.handleEvidenceFile = function(event) {
     const file = event.target.files[0];
     if (!file) return;
     
-    // Check file size (max 1MB for Firestore)
-    if (file.size > 1024 * 1024) { // 1MB max
+    if (file.size > 1024 * 1024) {
         alert('File size must be less than 1MB for Firestore storage');
         document.getElementById('evidenceFile').value = '';
         return;
     }
     
-    // Check file type
     const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
     if (!allowedTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|pdf)$/i)) {
         alert('Please upload PNG, JPG, or PDF file only');
@@ -820,11 +803,9 @@ window.handleEvidenceFile = function(event) {
     
     const reader = new FileReader();
     reader.onload = function(e) {
-        // Store the base64 string
         evidenceFileBase64 = e.target.result;
         evidenceFileName = file.name;
         
-        // Display file info
         const fileName = document.getElementById('evidenceFileName');
         const fileSize = document.getElementById('evidenceFileSize');
         const fileInfo = document.getElementById('evidenceFileInfo');
@@ -841,114 +822,113 @@ window.handleEvidenceFile = function(event) {
 window.removeEvidenceFile = function() {
     evidenceFileBase64 = null;
     evidenceFileName = null;
-    document.getElementById('evidenceFile').value = '';
+    const fileInput = document.getElementById('evidenceFile');
+    if (fileInput) fileInput.value = '';
     const fileInfo = document.getElementById('evidenceFileInfo');
     if (fileInfo) fileInfo.classList.remove('active');
     console.log('🗑️ File removed');
 };
 
 // ============================================
-// SUBMIT EVIDENCE WITH BASE64 STORAGE
+// SUBMIT EVIDENCE - USING API
 // ============================================
 window.submitEvidence = async function() {
     console.log('📤 submitEvidence called');
     
     if (!evidenceFileBase64) {
-        alert('Please upload your payment evidence.');
+        alert('Please upload your payment evidence/receipt from UPM payment gateway.');
         return;
     }
     
-    if (window.showLoading) window.showLoading('Uploading evidence and finalizing booking...');
+    const bookingId = sessionStorage.getItem('currentBookingId');
+    if (!bookingId) {
+        alert('Booking information missing. Please restart the process.');
+        goToPage(1);
+        return;
+    }
+    
+    if (window.showLoading) window.showLoading('Uploading evidence...');
     
     try {
-        console.log('📤 Submitting evidence...', {
-            fileName: evidenceFileName,
-            dataLength: evidenceFileBase64.length
+        // SECURE: Call API endpoint to upload evidence
+        await callAPI('/upload-evidence', {
+            bookingId,
+            evidenceFileBase64,
+            fileName: evidenceFileName
         });
         
-        // Update Firebase with base64 data
-        let firebaseUpdateSuccess = false;
+        console.log('✅ Evidence uploaded successfully');
         
-        if (window.db && window.firebaseModules) {
-            try {
-                const { doc, updateDoc } = window.firebaseModules;
-                const bookingId = sessionStorage.getItem('currentBookingId');
-                
-                if (bookingId) {
-                    console.log('Updating Firebase booking:', bookingId);
-                    const bookingRef = doc(window.db, "bookings", bookingId);
-                    await updateDoc(bookingRef, {
-                        paymentStatus: 'evidence_uploaded',
-                        evidenceUploaded: true,
-                        evidenceFileName: evidenceFileName,
-                        evidenceData: evidenceFileBase64, // Store base64 in Firestore
-                        evidenceUploadedAt: new Date().toISOString()
-                    });
-                    console.log('✅ Firebase updated successfully with base64 data');
-                    firebaseUpdateSuccess = true;
-                } else {
-                    console.warn('No booking ID found in session');
+        // Get updated booking details for confirmation
+        const bookingResponse = await fetch(`/api/get-booking?bookingId=${bookingId}`);
+        const bookingData = await bookingResponse.json();
+        
+        if (bookingData.success && bookingData.booking) {
+            const booking = bookingData.booking;
+            
+            // Update confirmation page
+            const contactPerson = sessionStorage.getItem('contactPerson') || 'Customer';
+            const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
+            const ticketQty = sessionStorage.getItem('ticketQuantity') || ticketQuantity || '1';
+            
+            if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
+            
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
+            
+            if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM Payment Gateway';
+            if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
+            if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
+            if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
+            if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQty;
+            
+            // Update participants list
+            let savedParticipants = sessionStorage.getItem('participants');
+            if (savedParticipants) {
+                try {
+                    const participantsList = JSON.parse(savedParticipants);
+                    if (confirmationParticipantsElement && participantsList.length > 0) {
+                        let participantsHtml = '<div style="margin-top: 15px;"><strong>Participants:</strong></div>';
+                        participantsList.forEach(p => {
+                            participantsHtml += `
+                                <div class="participant-item">
+                                    <span>${p.number}. ${p.name}</span>
+                                    <span>Age: ${p.age}</span>
+                                </div>
+                            `;
+                        });
+                        confirmationParticipantsElement.innerHTML = participantsHtml;
+                    }
+                } catch (e) {
+                    console.error('Error parsing participants:', e);
                 }
-            } catch (fbError) {
-                console.error('Firebase update failed:', fbError);
-                alert('Firebase update failed: ' + fbError.message);
-                if (window.hideLoading) window.hideLoading();
-                return;
             }
-        } else {
-            console.error('Firebase not available');
-            alert('Firebase not initialized');
-            if (window.hideLoading) window.hideLoading();
-            return;
         }
-        
-        // Get contact details
-        const contactPerson = document.getElementById('contactPerson')?.value || 
-                              sessionStorage.getItem('contactPerson') || 'Customer';
-        const contactEmail = sessionStorage.getItem('contactEmail') || 'test@example.com';
-        const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
-        
-        // Update confirmation page
-        if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
-        
-        const now = new Date();
-        const options = { year: 'numeric', month: 'long', day: 'numeric' };
-        if (confirmationDateElement) confirmationDateElement.textContent = now.toLocaleDateString('en-US', options);
-        
-        if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM FPX (Test Mode)';
-        if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
-        
-        if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
-        if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
-        if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQuantity || '1';
-        
-        // Update participants list
-        updateConfirmationParticipants();
-        
-        // Log success
-        console.log('✅ EVIDENCE UPLOAD COMPLETE', {
-            bookingRef: bookingRef,
-            evidenceFile: evidenceFileName,
-            firebaseUpdated: firebaseUpdateSuccess,
-            status: 'Pending Verification'
-        });
         
         if (window.hideLoading) window.hideLoading();
         
         // Clear evidence file
         removeEvidenceFile();
         
+        // Hide payment modal if visible
+        hidePaymentModal();
+        
         // Go to confirmation page
         goToPage(6);
         
     } catch (error) {
-        console.error('❌ Error in submitEvidence:', error);
-        
+        console.error('❌ Error uploading evidence:', error);
+        alert('Error uploading evidence: ' + error.message);
         if (window.hideLoading) window.hideLoading();
-        
-        // Show user-friendly error but still allow retry
-        alert('There was an issue submitting your evidence. Please try again. (Error: ' + error.message + ')');
     }
+};
+
+// ============================================
+// GO TO EVIDENCE UPLOAD PAGE
+// ============================================
+window.goToEvidenceUpload = function() {
+    goToPage(5);
 };
 
 // ============================================
@@ -982,7 +962,7 @@ function getPage6HTML() {
                 </div>
                 <div class="preview-item">
                     <span class="preview-label">Payment Method:</span>
-                    <span class="preview-value" id="confirmationPaymentMethod">UPM FPX</span>
+                    <span class="preview-value" id="confirmationPaymentMethod">UPM Payment Gateway</span>
                 </div>
                 <div class="preview-item">
                     <span class="preview-label">Booking Reference ID:</span>
@@ -1012,7 +992,7 @@ function getPage6HTML() {
 function updateConfirmationPage() {
     const contactPerson = sessionStorage.getItem('contactPerson') || '-';
     const bookingRef = sessionStorage.getItem('bookingRef') || 'YSD-2026-001';
-    const { total } = calculateTotal(ticketQuantity);
+    const ticketQty = sessionStorage.getItem('ticketQuantity') || ticketQuantity || '1';
     
     const now = new Date();
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -1020,11 +1000,21 @@ function updateConfirmationPage() {
     
     if (confirmationContactElement) confirmationContactElement.textContent = contactPerson;
     if (confirmationDateElement) confirmationDateElement.textContent = formattedDate;
-    if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQuantity;
+    if (confirmationQuantityElement) confirmationQuantityElement.textContent = ticketQty;
     if (confirmationBookingRefElement) confirmationBookingRefElement.textContent = bookingRef;
     if (confirmationRefElement) confirmationRefElement.textContent = bookingRef;
-    if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM FPX';
+    if (confirmationPaymentMethodElement) confirmationPaymentMethodElement.textContent = 'UPM Payment Gateway';
     if (confirmationPaymentStatusElement) confirmationPaymentStatusElement.textContent = 'Pending Verification';
+    
+    // Try to load participants from session storage if not in memory
+    let savedParticipants = sessionStorage.getItem('participants');
+    if (savedParticipants && participants.length === 0) {
+        try {
+            participants = JSON.parse(savedParticipants);
+        } catch (e) {
+            console.error('Error parsing participants:', e);
+        }
+    }
     
     // Update participants list
     if (confirmationParticipantsElement && participants.length > 0) {
@@ -1048,6 +1038,17 @@ function updateConfirmationParticipants() {
     if (!confirmationParticipantsElement) return;
     
     confirmationParticipantsElement.innerHTML = '';
+    
+    if (participants.length === 0) {
+        let saved = sessionStorage.getItem('participants');
+        if (saved) {
+            try {
+                participants = JSON.parse(saved);
+            } catch (e) {
+                console.error('Error parsing participants:', e);
+            }
+        }
+    }
     
     if (participants.length === 0) return;
     
@@ -1073,7 +1074,18 @@ function updateConfirmationParticipants() {
 // ============================================
 window.printSummary = function() {
     let participantsHTML = '';
-    participants.forEach(p => {
+    
+    let printParticipants = participants;
+    if (printParticipants.length === 0) {
+        const saved = sessionStorage.getItem('participants');
+        if (saved) {
+            try {
+                printParticipants = JSON.parse(saved);
+            } catch (e) {}
+        }
+    }
+    
+    printParticipants.forEach(p => {
         participantsHTML += `
             <tr>
                 <td>${p.number}</td>
@@ -1083,12 +1095,12 @@ window.printSummary = function() {
         `;
     });
     
-    const paymentMethod = confirmationPaymentMethodElement?.textContent || 'UPM FPX';
+    const paymentMethod = confirmationPaymentMethodElement?.textContent || 'UPM Payment Gateway';
     const paymentStatus = confirmationPaymentStatusElement?.textContent || 'Pending Verification';
-    const contactPerson = confirmationContactElement?.textContent || '-';
-    const bookingRef = confirmationBookingRefElement?.textContent || '-';
-    const dateSubmitted = confirmationDateElement?.textContent || '-';
-    const quantity = confirmationQuantityElement?.textContent || '1';
+    const contactPerson = confirmationContactElement?.textContent || sessionStorage.getItem('contactPerson') || '-';
+    const bookingRef = confirmationBookingRefElement?.textContent || sessionStorage.getItem('bookingRef') || '-';
+    const dateSubmitted = confirmationDateElement?.textContent || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const quantity = confirmationQuantityElement?.textContent || sessionStorage.getItem('ticketQuantity') || '1';
     
     const printContent = `
         <!DOCTYPE html>
@@ -1097,9 +1109,9 @@ window.printSummary = function() {
             <title>YSD2026 UPM Booking Summary</title>
             <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
-                .summary { border: 2px solid #2c3e50; border-radius: 10px; padding: 20px; max-width: 800px; margin: 0 auto; }
+                .summary { border: 2px solid #00653e; border-radius: 10px; padding: 20px; max-width: 800px; margin: 0 auto; }
                 .header { text-align: center; margin-bottom: 30px; }
-                .header h1 { color: #2c3e50; margin-bottom: 5px; }
+                .header h1 { color: #00653e; margin-bottom: 5px; }
                 .header h2 { color: #4CAF50; margin-top: 0; }
                 .info { margin-bottom: 20px; }
                 .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -1121,7 +1133,7 @@ window.printSummary = function() {
                     <div class="badge">${paymentStatus}</div>
                     <h1>YOUNG SCIENTIST DAY 2026</h1>
                     <h2>Universiti Putra Malaysia</h2>
-                    <p>13th June 2026 | Universiti Putra Malaysia, Serdang</p>
+                    <p>13th June 2026 | Department of Human Anatomy, Faculty of Medicine and Health Sciences, Universiti Putra Malaysia, 43400 UPM Serdang, Selangor Darul Ehsan.</p>
                 </div>
                 
                 <div class="info">
@@ -1162,7 +1174,7 @@ window.printSummary = function() {
                 </table>
                 
                 <div class="footer">
-                    <p>For inquiries: ysd@upm.edu.my | Tel: 03-1234 5678</p>
+                    <p>For inquiries: ysd@upm.edu.my | Tel: 03-9769 2330 / 03-9769 3220</p>
                 </div>
             </div>
             
@@ -1177,26 +1189,4 @@ window.printSummary = function() {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(printContent);
     printWindow.document.close();
-};
-
-// ============================================
-// NAVIGATION HELPERS
-// ============================================
-window.goToEvidenceUpload = function() {
-    goToPage(5);
-};
-
-// ============================================
-// DEBUG FUNCTION - Check Firebase Status
-// ============================================
-window.checkFirebaseStatus = function() {
-    console.log('🔍 Firebase Status Check:', {
-        dbAvailable: !!window.db,
-        modulesAvailable: !!window.firebaseModules,
-        bookingId: sessionStorage.getItem('currentBookingId'),
-        bookingRef: sessionStorage.getItem('bookingRef'),
-        contactEmail: sessionStorage.getItem('contactEmail'),
-        contactPerson: sessionStorage.getItem('contactPerson')
-    });
-    return 'Check console for details';
 };
