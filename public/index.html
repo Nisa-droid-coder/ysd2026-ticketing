@@ -126,39 +126,14 @@
             if (loadingOverlay) loadingOverlay.style.display = 'none';
         };
         
-        // API Health Check
-        async function checkAPIHealth() {
-            try {
-                const response = await fetch('/api/health', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (response.ok) {
-                    console.log('✅ API is healthy');
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.error('API health check failed:', error);
-                return false;
-            }
-        }
-        
         // Initialize Application
         async function initializeApplication() {
             console.log('🚀 Initializing YSD2026 Registration System (Secure Mode)');
             
-            // Check API health first
-            const apiHealthy = await checkAPIHealth();
-            if (!apiHealthy) {
-                console.warn('⚠️ API health check failed, but continuing...');
-            }
-            
-            // Load the main application module
+            // Load the main application module from the correct path
             try {
-                const module = await import('./js/app.js');
+                // Use absolute path to js folder (not api/js)
+                const module = await import('/js/app.js');
                 if (module.initializeApp) {
                     module.initializeApp();
                 } else {
@@ -181,23 +156,10 @@
             }
         }
         
-        // Create a health check endpoint if it doesn't exist
-        // This is a fallback - you should create api/health.js
-        if (!window.healthCheckEndpoint) {
-            console.log('Application starting in secure mode - all Firebase operations go through API');
-        }
-        
-        // Start the application
+        // Start the application when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApplication);
         
-        // Optional: Add API health check endpoint (create this in your api folder)
-        // For now, just log that we're ready
-        console.log('✅ Application ready - Using secure API endpoints');
-    </script>
-    
-    <!-- Optional: Add a simple health check endpoint if not exists -->
-    <script>
-        // Fallback check for API availability
+        // Optional: Check API health on load (doesn't affect functionality)
         setTimeout(async () => {
             try {
                 const response = await fetch('/api/health');
@@ -205,9 +167,9 @@
                     console.log('✅ API endpoints are available');
                 }
             } catch (e) {
-                console.log('ℹ️ API health endpoint not found - using direct mode');
+                console.log('ℹ️ API health check: service may still be initializing');
             }
-        }, 1000);
+        }, 2000);
     </script>
 </body>
 </html>
